@@ -73,7 +73,8 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "android/**/*.*"
     )
 
-    val debugTree = fileTree("${layout.buildDirectory.get()}/intermediates/javac/debug/classes") {
+    val debugTree = fileTree("${layout.buildDirectory.get()}/intermediates") {
+        include("**/classes/**/*.class")
         exclude(fileFilter)
     }
 
