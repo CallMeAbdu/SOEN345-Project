@@ -19,7 +19,7 @@ import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.auth.AuthService;
 
 public class MainActivity extends AppCompatActivity {
-// dummy take 2
+
     private EditText emailInput;
     private EditText passwordInput;
     private EditText confirmPasswordInput;
