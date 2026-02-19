@@ -17,7 +17,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.soen345.project.auth.AuthCallback;
 import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.auth.AuthService;
-// this is a dummy edit for codecov testing purposes, it may be deleted
+
 public class MainActivity extends AppCompatActivity {
 
     private EditText emailInput;
