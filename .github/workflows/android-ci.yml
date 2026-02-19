@@ -39,15 +39,6 @@ jobs:
       - name: Run Unit Tests with Coverage
         run: ./gradlew testDebugUnitTest jacocoTestReport --stacktrace
 
-      # ── TEMPORARY DEBUG STEP ──────────────────
-      # This prints where .class files actually live so we can fix
-      # the classDirectories path in build.gradle.kts.
-      # Remove this step once you've confirmed the correct path.
-      - name: Debug - Find class files
-        if: always()
-        run: find app/build/intermediates -name "*.class" | head -30
-      # ─────────────────────────────────────────
-
       - name: Upload Unit Test Results
         if: always()
         uses: actions/upload-artifact@v4

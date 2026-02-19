@@ -53,9 +53,9 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
 }
 
-// ─────────────────────────────────────────────────────────────
-// JaCoCo Report Task — generates XML report for Codecov
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// JaCoCo Report Task – generates XML report for Codecov
+// ─────────────────────────────────────────────────────────────────
 tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
 
