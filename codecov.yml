@@ -11,6 +11,7 @@ comment:
   layout: "reach,diff,flags,files"
   behavior: default
   require_changes: false
+  require_base: false
 
 fixes:
-  - "app/src/main/java/::"
+  - "com/soen345/::app/src/main/java/com/soen345/"
