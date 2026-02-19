@@ -13,4 +13,4 @@ comment:
   require_changes: false
 
 fixes:
-  - "app/src/main/java/::"
+  - "::app/src/main/java/"
