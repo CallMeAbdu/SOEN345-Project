@@ -15,7 +15,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
-
+// dummy comment
 public class HomeActivity extends AppCompatActivity {
     public static final String EXTRA_USER_EMAIL = "extra_user_email";
 
