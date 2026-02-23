@@ -79,7 +79,7 @@ public class HomeActivity extends AppCompatActivity {
             role = authService.getSignedInRole();
         }
         String roleLabel;
-        if (role == UserRole.ADMINISTRATOR) {
+        if (role == UserRole.ADMIN) {
             roleLabel = getString(R.string.role_administrator);
         } else if (role == UserRole.CUSTOMER) {
             roleLabel = getString(R.string.role_customer);

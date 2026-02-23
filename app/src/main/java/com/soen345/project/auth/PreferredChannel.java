@@ -1,12 +1,12 @@
 package com.soen345.project.auth;
 
-public enum UserRole {
-    CUSTOMER("CUSTOMER"),
-    ADMIN("ADMIN");
+public enum PreferredChannel {
+    EMAIL("EMAIL"),
+    SMS("SMS");
 
     private final String value;
 
-    UserRole(String value) {
+    PreferredChannel(String value) {
         this.value = value;
     }
 
@@ -14,16 +14,16 @@ public enum UserRole {
         return value;
     }
 
-    public static UserRole fromValue(String rawValue) {
+    public static PreferredChannel fromValue(String rawValue) {
         if (rawValue == null) {
             return null;
         }
         String normalized = rawValue.trim().toUpperCase();
-        if ("CUSTOMER".equals(normalized)) {
-            return CUSTOMER;
+        if ("EMAIL".equals(normalized)) {
+            return EMAIL;
         }
-        if ("ADMIN".equals(normalized) || "ADMINISTRATOR".equals(normalized)) {
-            return ADMIN;
+        if ("SMS".equals(normalized)) {
+            return SMS;
         }
         return null;
     }

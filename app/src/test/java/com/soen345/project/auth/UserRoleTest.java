@@ -9,8 +9,8 @@ public class UserRoleTest {
 
     @Test
     public void value_returnsExpectedString() {
-        assertEquals("customer", UserRole.CUSTOMER.value());
-        assertEquals("administrator", UserRole.ADMINISTRATOR.value());
+        assertEquals("CUSTOMER", UserRole.CUSTOMER.value());
+        assertEquals("ADMIN", UserRole.ADMIN.value());
     }
 
     @Test
@@ -20,7 +20,8 @@ public class UserRoleTest {
 
     @Test
     public void fromValue_isCaseInsensitiveAndTrimmed() {
-        assertEquals(UserRole.ADMINISTRATOR, UserRole.fromValue("  AdMiNiStRaToR "));
+        assertEquals(UserRole.ADMIN, UserRole.fromValue("  AdMiNiStRaToR "));
+        assertEquals(UserRole.ADMIN, UserRole.fromValue("admin"));
     }
 
     @Test

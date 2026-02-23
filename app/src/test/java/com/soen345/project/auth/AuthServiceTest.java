@@ -74,6 +74,16 @@ public class AuthServiceTest {
     }
 
     @Test
+    public void register_withUppercaseEmail_normalizesToLowercase() {
+        TestCallback callback = new TestCallback();
+
+        authService.register(" USER@EXAMPLE.COM ", "+15145550100", "password123", "password123", callback);
+
+        assertEquals(1, fakeAuthRepository.registerCalls);
+        assertEquals("user@example.com", fakeAuthRepository.lastEmail);
+    }
+
+    @Test
     public void signOut_updatesSignedInState() {
         authService.register("user@example.com", "+15145550100", "password123", "password123", new TestCallback());
         assertTrue(authService.isSignedIn());
@@ -91,6 +101,26 @@ public class AuthServiceTest {
 
         assertEquals(1, fakeAuthRepository.signInCalls);
         assertEquals("+15145550100", fakeAuthRepository.lastIdentifier);
+    }
+
+    @Test
+    public void signIn_withUsCountryCodeDigits_normalizesBeforeRepositoryCall() {
+        TestCallback callback = new TestCallback();
+
+        authService.signIn("15145550100", "password123", callback);
+
+        assertEquals(1, fakeAuthRepository.signInCalls);
+        assertEquals("+15145550100", fakeAuthRepository.lastIdentifier);
+    }
+
+    @Test
+    public void signIn_withInternationalPhone_keepsPlusAndStripsFormatting() {
+        TestCallback callback = new TestCallback();
+
+        authService.signIn("+44 7700 900123", "password123", callback);
+
+        assertEquals(1, fakeAuthRepository.signInCalls);
+        assertEquals("+447700900123", fakeAuthRepository.lastIdentifier);
     }
 
     @Test
@@ -128,6 +158,16 @@ public class AuthServiceTest {
         TestCallback callback = new TestCallback();
 
         authService.signIn("12345", "password123", callback);
+
+        assertEquals("Please enter a valid phone number", callback.error);
+        assertEquals(0, fakeAuthRepository.signInCalls);
+    }
+
+    @Test
+    public void signIn_withPhoneContainingInvalidCharacters_returnsValidationError() {
+        TestCallback callback = new TestCallback();
+
+        authService.signIn("+1(514)ABC-0100", "password123", callback);
 
         assertEquals("Please enter a valid phone number", callback.error);
         assertEquals(0, fakeAuthRepository.signInCalls);
@@ -198,6 +238,13 @@ public class AuthServiceTest {
         authService.signIn("user@example.com", "password123", new TestCallback());
 
         assertEquals(UserRole.CUSTOMER, authService.getSignedInRole());
+    }
+
+    @Test
+    public void getSignedInEmail_returnsRepositoryEmail() {
+        authService.signIn("user@example.com", "password123", new TestCallback());
+
+        assertEquals("user@example.com", authService.getSignedInEmail());
     }
 
     private static class TestCallback implements AuthCallback {

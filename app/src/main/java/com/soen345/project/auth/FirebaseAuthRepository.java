@@ -23,10 +23,11 @@ public class FirebaseAuthRepository implements AuthRepository {
     private static final String PROFILE_SAVE_ERROR = "Account created, but role setup failed. Please try again.";
     private static final String USERS_COLLECTION = "users";
     private static final String PHONE_INDEX_COLLECTION = "phone_index";
+    private static final String FIELD_USER_ID = "userId";
     private static final String FIELD_EMAIL = "email";
-    private static final String FIELD_PHONE_E164 = "phoneE164";
+    private static final String FIELD_PHONE = "phone";
     private static final String FIELD_ROLE = "role";
-    private static final String FIELD_UID = "uid";
+    private static final String FIELD_PREFERRED_CHANNEL = "preferredChannel";
     private static final String PREFS_NAME = "auth_prefs";
     private static final String KEY_SIGNED_IN_ROLE = "signed_in_role";
 
@@ -121,12 +122,14 @@ public class FirebaseAuthRepository implements AuthRepository {
         UserRole selectedRole = UserRole.CUSTOMER;
 
         Map<String, Object> profileData = new HashMap<>();
+        profileData.put(FIELD_USER_ID, uid);
         profileData.put(FIELD_EMAIL, safeEmail);
-        profileData.put(FIELD_PHONE_E164, phoneE164);
+        profileData.put(FIELD_PHONE, phoneE164);
         profileData.put(FIELD_ROLE, selectedRole.value());
+        profileData.put(FIELD_PREFERRED_CHANNEL, PreferredChannel.EMAIL.value());
 
         Map<String, Object> phoneIndexData = new HashMap<>();
-        phoneIndexData.put(FIELD_UID, uid);
+        phoneIndexData.put(FIELD_USER_ID, uid);
         phoneIndexData.put(FIELD_EMAIL, safeEmail);
 
         firestore
