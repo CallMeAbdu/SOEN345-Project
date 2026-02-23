@@ -26,6 +26,14 @@
         android:text="@string/auth_signed_in_as_default"
         android:textSize="16sp" />
 
+    <TextView
+        android:id="@+id/homeRoleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/home_role_default"
+        android:textSize="16sp" />
+
     <Button
         android:id="@+id/homeSignOutButton"
         android:layout_width="match_parent"
