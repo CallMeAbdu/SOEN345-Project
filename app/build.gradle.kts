@@ -21,6 +21,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableUnitTestCoverage = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -43,7 +46,6 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
     testImplementation(libs.junit)
-    testImplementation(libs.mockito.core)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
@@ -51,17 +53,15 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
 }
 
-jacoco {
-    toolVersion = "0.8.12"
-}
-
-tasks.register<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+// ─────────────────────────────────────────────────────────────────
+// JaCoCo Report Task – generates XML report for Codecov
+// ─────────────────────────────────────────────────────────────────
+tasks.register<JacocoReport>("jacocoTestReport") {
     dependsOn("testDebugUnitTest")
 
     reports {
         xml.required.set(true)
         html.required.set(true)
-        csv.required.set(false)
     }
 
     val fileFilter = listOf(
@@ -69,23 +69,22 @@ tasks.register<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport")
         "**/R$*.class",
         "**/BuildConfig.*",
         "**/Manifest*.*",
+        "**/*Test*.*",
         "android/**/*.*"
     )
 
-    val debugClassesDir = layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")
-    val javaClasses = fileTree(debugClassesDir) {
+    val debugTree = fileTree(
+        "${layout.buildDirectory.get()}/intermediates/javac/debug/compileDebugJavaWithJavac/classes"
+    ) {
         exclude(fileFilter)
     }
 
-    sourceDirectories.setFrom(files("src/main/java"))
-    classDirectories.setFrom(files(javaClasses))
-    executionData.setFrom(
-        fileTree(layout.buildDirectory) {
-            include(
-                "jacoco/testDebugUnitTest.exec",
-                "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec",
-                "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec.ec"
-            )
-        }
-    )
+    sourceDirectories.setFrom(files("${project.projectDir}/src/main/java"))
+    classDirectories.setFrom(files(debugTree))
+    executionData.setFrom(fileTree(layout.buildDirectory.get()) {
+        include(
+            "jacoco/testDebugUnitTest.exec",
+            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
+        )
+    })
 }

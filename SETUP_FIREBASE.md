@@ -1,6 +1,6 @@
 # Firebase Setup (Team)
 
-This project ignores the real Firebase config file:
+This project ignores the real Firebase config file for security reasons:
 - `app/google-services.json`
 
 Use this process on each machine:
