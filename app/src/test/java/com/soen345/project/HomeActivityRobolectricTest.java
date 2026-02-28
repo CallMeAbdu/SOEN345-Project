@@ -1,5 +1,7 @@
 package com.soen345.project;
 
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.DialogInterface;
 import android.os.Looper;
@@ -211,6 +213,149 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
+    public void addEventDialog_timeRequired_setsTimeError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "", "Music", "Bell", "100", "80");
+        clickPositive(dialog);
+
+        EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
+        assertNotNull(timeInput);
+        assertNotNull(timeInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_invalidTimeFormat_setsTimeErrorAfterParseAttempt() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "bad-time", "Music", "Bell", "100", "80");
+        clickPositive(dialog);
+
+        EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
+        assertNotNull(timeInput);
+        assertNotNull(timeInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_categoryRequired_setsCategoryError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "", "Bell", "100", "80");
+        clickPositive(dialog);
+
+        EditText categoryInput = dialog.findViewById(R.id.dialogEventCategoryInput);
+        assertNotNull(categoryInput);
+        assertNotNull(categoryInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_locationRequired_setsLocationError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "", "100", "80");
+        clickPositive(dialog);
+
+        EditText locationInput = dialog.findViewById(R.id.dialogEventLocationInput);
+        assertNotNull(locationInput);
+        assertNotNull(locationInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_capacityTotalRequired_setsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "", "10");
+        clickPositive(dialog);
+
+        EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
+        assertNotNull(totalInput);
+        assertNotNull(totalInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_capacityTotalInvalid_setsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "0", "0");
+        clickPositive(dialog);
+
+        EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
+        assertNotNull(totalInput);
+        assertNotNull(totalInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_capacityRemainingInvalid_setsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "10", "-1");
+        clickPositive(dialog);
+
+        EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
+        assertNotNull(remainingInput);
+        assertNotNull(remainingInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_capacityRemainingExceedsTotal_setsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "10", "11");
+        clickPositive(dialog);
+
+        EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
+        assertNotNull(remainingInput);
+        assertNotNull(remainingInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_whenRemainingEmpty_defaultsToTotal() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "10", "");
+        clickPositive(dialog);
+
+        assertEquals(1, eventRepository.createCalls);
+        assertNotNull(eventRepository.lastCreatedEvent);
+        assertEquals(10, eventRepository.lastCreatedEvent.getCapacityRemaining());
+    }
+
+    @Test
     public void editEventDialog_success_callsUpdate() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         eventRepository.events.add(new Event("doc-1", "event-1", "Jazz Night", "Music", "Hall A", 2000L, EventStatus.ACTIVE, 100, 80));
@@ -228,6 +373,28 @@ public class HomeActivityRobolectricTest {
         assertEquals(1, eventRepository.updateCalls);
         assertNotNull(eventRepository.lastUpdatedEvent);
         assertEquals("Jazz Night Updated", eventRepository.lastUpdatedEvent.getTitle());
+    }
+
+    @Test
+    public void editEventDialog_whenUpdateFails_showsToastWithError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.updateError = "update denied";
+        eventRepository.events.add(new Event("doc-1", "event-1", "Jazz Night", "Music", "Hall A", 2000L, EventStatus.ACTIVE, 100, 80));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
+        View firstItem = eventContainer.getChildAt(0);
+        Button editButton = firstItem.findViewById(R.id.eventItemEditButton);
+        editButton.performClick();
+
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Jazz Night Updated", "2026-05-16 21:00", "Music", "Hall A", "110", "95");
+        clickPositive(dialog);
+
+        String toast = String.valueOf(ShadowToast.getTextOfLatestToast());
+        assertTrue(toast.contains(activity.getString(R.string.home_event_save_failed)));
+        assertTrue(toast.contains("update denied"));
+        assertEquals(1, eventRepository.updateCalls);
     }
 
     @Test
@@ -273,6 +440,81 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
+    public void renderEvent_withBlankFields_usesFallbackLabelsAndUntitledInConfirmDialog() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("doc-1", "event-1", "   ", "   ", "   ", 0L, EventStatus.ACTIVE, 10, 5));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
+        View firstItem = eventContainer.getChildAt(0);
+        TextView title = firstItem.findViewById(R.id.eventItemTitle);
+        TextView details = firstItem.findViewById(R.id.eventItemDetails);
+        Button statusButton = firstItem.findViewById(R.id.eventItemStatusButton);
+
+        assertEquals(activity.getString(R.string.home_event_untitled), title.getText().toString());
+        String detailText = details.getText().toString();
+        assertTrue(detailText.contains(activity.getString(R.string.home_event_no_time)));
+        assertTrue(detailText.contains(activity.getString(R.string.home_event_no_category)));
+        assertTrue(detailText.contains(activity.getString(R.string.home_event_no_location)));
+
+        statusButton.performClick();
+        AlertDialog confirmDialog = latestDialog();
+        TextView messageView = confirmDialog.findViewById(android.R.id.message);
+        assertNotNull(messageView);
+        assertTrue(messageView.getText().toString().contains(activity.getString(R.string.home_event_untitled)));
+    }
+
+    @Test
+    public void addEventClick_whenNotAdmin_doesNotOpenDialog() {
+        authRepository.setSignedIn("customer@example.com", UserRole.CUSTOMER);
+        HomeActivity activity = launchHome("customer@example.com", UserRole.CUSTOMER);
+
+        Method showEventDialog = getPrivateMethod("showEventDialog", Event.class);
+        try {
+            showEventDialog.invoke(activity, new Object[] {null});
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        assertEquals(0, eventRepository.createCalls);
+        assertEquals(0, eventRepository.updateCalls);
+    }
+
+    @Test
+    public void timeInputClick_opensDateTimePickers_andSetsFieldValue() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog eventDialog = latestDialog();
+        EditText timeInput = eventDialog.findViewById(R.id.dialogEventTimeInput);
+        assertNotNull(timeInput);
+        timeInput.setError("old");
+        timeInput.performClick();
+
+        shadowOf(Looper.getMainLooper()).idle();
+        android.app.Dialog rawDateDialog = ShadowDialog.getLatestDialog();
+        assertTrue(rawDateDialog instanceof DatePickerDialog);
+        DatePickerDialog dateDialog = (DatePickerDialog) rawDateDialog;
+        dateDialog.getDatePicker().updateDate(2026, 4, 15);
+        Button datePositive = dateDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        assertNotNull(datePositive);
+        datePositive.performClick();
+
+        shadowOf(Looper.getMainLooper()).idle();
+        android.app.Dialog rawTimeDialog = ShadowDialog.getLatestDialog();
+        assertTrue(rawTimeDialog instanceof TimePickerDialog);
+        TimePickerDialog timeDialog = (TimePickerDialog) rawTimeDialog;
+        timeDialog.updateTime(21, 30);
+        Button timePositive = timeDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        assertNotNull(timePositive);
+        timePositive.performClick();
+
+        assertFalse(timeInput.getText().toString().isEmpty());
+        assertNull(timeInput.getError());
+    }
+
+    @Test
     public void utilityMethods_handleParsingFormattingAndErrors() throws Exception {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
@@ -281,9 +523,13 @@ public class HomeActivityRobolectricTest {
         parse.setAccessible(true);
         long parsed = (Long) parse.invoke(activity, "2026-05-15 20:00");
         long parsedAlt = (Long) parse.invoke(activity, "2026/05/15 20:00");
+        long parsedNull = (Long) parse.invoke(activity, new Object[] {null});
+        long parsedBlank = (Long) parse.invoke(activity, "   ");
         long parsedInvalid = (Long) parse.invoke(activity, "invalid");
         assertTrue(parsed > 0L);
         assertTrue(parsedAlt > 0L);
+        assertEquals(0L, parsedNull);
+        assertEquals(0L, parsedBlank);
         assertEquals(0L, parsedInvalid);
 
         Method parseInteger = HomeActivity.class.getDeclaredMethod("parseInteger", String.class);
@@ -319,6 +565,16 @@ public class HomeActivityRobolectricTest {
         assertNotNull(positive);
         positive.performClick();
         shadowOf(Looper.getMainLooper()).idle();
+    }
+
+    private Method getPrivateMethod(String methodName, Class<?>... parameterTypes) {
+        try {
+            Method method = HomeActivity.class.getDeclaredMethod(methodName, parameterTypes);
+            method.setAccessible(true);
+            return method;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void fillEventDialog(
