@@ -15,12 +15,15 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.soen345.project.auth.AuthCallback;
+import com.soen345.project.auth.AuthSession;
 import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.auth.AuthService;
+import com.soen345.project.auth.UserRole;
 
 public class MainActivity extends AppCompatActivity {
 
     private EditText emailInput;
+    private EditText phoneInput;
     private EditText passwordInput;
     private EditText confirmPasswordInput;
     private Button authButton;
@@ -58,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindViews() {
         emailInput = findViewById(R.id.emailInput);
+        phoneInput = findViewById(R.id.phoneInput);
         passwordInput = findViewById(R.id.passwordInput);
         confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
         authButton = findViewById(R.id.authButton);
@@ -82,11 +86,16 @@ public class MainActivity extends AppCompatActivity {
             titleText.setText(R.string.auth_title_register);
             authButton.setText(R.string.auth_action_register);
             modeSwitchText.setText(R.string.auth_switch_to_sign_in);
+            emailInput.setHint(R.string.auth_hint_email);
+            phoneInput.setVisibility(View.VISIBLE);
             confirmPasswordInput.setVisibility(View.VISIBLE);
         } else {
             titleText.setText(R.string.auth_title_sign_in);
             authButton.setText(R.string.auth_action_sign_in);
             modeSwitchText.setText(R.string.auth_switch_to_register);
+            emailInput.setHint(R.string.auth_hint_email_or_phone);
+            phoneInput.setVisibility(View.GONE);
+            phoneInput.setText("");
             confirmPasswordInput.setVisibility(View.GONE);
             confirmPasswordInput.setText("");
         }
@@ -94,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void submitAuth() {
         String email = emailInput.getText().toString().trim();
+        String phone = phoneInput.getText().toString().trim();
         String password = passwordInput.getText().toString();
         String confirmPassword = confirmPasswordInput.getText().toString();
 
@@ -101,11 +111,11 @@ public class MainActivity extends AppCompatActivity {
 
         AuthCallback callback = new AuthCallback() {
             @Override
-            public void onSuccess(String userEmail) {
+            public void onSuccess(AuthSession session) {
                 setLoading(false);
                 statusText.setVisibility(View.GONE);
                 Toast.makeText(MainActivity.this, R.string.auth_success, Toast.LENGTH_SHORT).show();
-                navigateToHome(userEmail);
+                navigateToHome(session.getEmail(), session.getRole());
             }
 
             @Override
@@ -117,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
         };
 
         if (isRegisterMode) {
-            authService.register(email, password, confirmPassword, callback);
+            authService.register(email, phone, password, confirmPassword, callback);
         } else {
             authService.signIn(email, password, callback);
         }
@@ -128,20 +138,26 @@ public class MainActivity extends AppCompatActivity {
         authButton.setEnabled(!isLoading);
         modeSwitchText.setEnabled(!isLoading);
         emailInput.setEnabled(!isLoading);
+        phoneInput.setEnabled(!isLoading);
         passwordInput.setEnabled(!isLoading);
         confirmPasswordInput.setEnabled(!isLoading);
     }
 
     private void refreshSignedInState() {
         if (authService.isSignedIn()) {
-            navigateToHome(authService.getSignedInEmail());
+            UserRole role = authService.getSignedInRole();
+            if (role != null) {
+                navigateToHome(authService.getSignedInEmail(), role);
+            } else {
+                authService.signOut();
+            }
         }
         statusText.setVisibility(View.GONE);
         setLoading(false);
     }
 
-    private void navigateToHome(String email) {
-        startActivity(HomeActivity.newIntent(this, email));
+    private void navigateToHome(String email, UserRole role) {
+        startActivity(HomeActivity.newIntent(this, email, role));
         finish();
     }
 }

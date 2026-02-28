@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
+    android:importantForAutofill="noExcludeDescendants"
     tools:context=".MainActivity">
 
     <LinearLayout
@@ -34,9 +35,19 @@
                 android:id="@+id/emailInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/auth_hint_email"
-                android:inputType="textEmailAddress"
+                android:hint="@string/auth_hint_email_or_phone"
+                android:inputType="text"
                 android:maxLines="1" />
+
+            <EditText
+                android:id="@+id/phoneInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/auth_hint_phone"
+                android:inputType="phone"
+                android:maxLines="1"
+                android:visibility="gone" />
 
             <EditText
                 android:id="@+id/passwordInput"

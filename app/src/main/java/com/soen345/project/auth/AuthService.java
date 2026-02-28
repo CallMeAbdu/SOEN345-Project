@@ -6,6 +6,7 @@ public class AuthService {
     private static final int MIN_PASSWORD_LENGTH = 6;
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+    private static final Pattern DIGITS_PATTERN = Pattern.compile("^\\d+$");
 
     private final AuthRepository authRepository;
 
@@ -16,26 +17,27 @@ public class AuthService {
         this.authRepository = authRepository;
     }
 
-    public void signIn(String email, String password, AuthCallback callback) {
+    public void signIn(String identifier, String password, AuthCallback callback) {
         validateCallback(callback);
-        String normalizedEmail = normalize(email);
-        ValidationResult validationResult = validateSignIn(normalizedEmail, password);
+        String normalizedIdentifier = normalizeSignInIdentifier(identifier);
+        ValidationResult validationResult = validateSignIn(normalizedIdentifier, password);
         if (!validationResult.isValid) {
             callback.onError(validationResult.errorMessage);
             return;
         }
-        authRepository.signIn(normalizedEmail, password, callback);
+        authRepository.signIn(normalizedIdentifier, password, callback);
     }
 
-    public void register(String email, String password, String confirmPassword, AuthCallback callback) {
+    public void register(String email, String phone, String password, String confirmPassword, AuthCallback callback) {
         validateCallback(callback);
-        String normalizedEmail = normalize(email);
-        ValidationResult validationResult = validateRegistration(normalizedEmail, password, confirmPassword);
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedPhone = normalizePhone(phone);
+        ValidationResult validationResult = validateRegistration(normalizedEmail, normalizedPhone, password, confirmPassword);
         if (!validationResult.isValid) {
             callback.onError(validationResult.errorMessage);
             return;
         }
-        authRepository.register(normalizedEmail, password, callback);
+        authRepository.register(normalizedEmail, normalizedPhone, password, callback);
     }
 
     public boolean isSignedIn() {
@@ -46,16 +48,24 @@ public class AuthService {
         return authRepository.getSignedInEmail();
     }
 
+    public UserRole getSignedInRole() {
+        return authRepository.getSignedInRole();
+    }
+
     public void signOut() {
         authRepository.signOut();
     }
 
-    private ValidationResult validateSignIn(String email, String password) {
-        if (email.isEmpty()) {
-            return ValidationResult.error("Email is required");
+    private ValidationResult validateSignIn(String identifier, String password) {
+        if (identifier.isEmpty()) {
+            return ValidationResult.error("Email or phone is required");
         }
-        if (!EMAIL_PATTERN.matcher(email).matches()) {
-            return ValidationResult.error("Please enter a valid email");
+        if (identifier.contains("@")) {
+            if (!EMAIL_PATTERN.matcher(identifier).matches()) {
+                return ValidationResult.error("Please enter a valid email");
+            }
+        } else if (normalizePhone(identifier) == null) {
+            return ValidationResult.error("Please enter a valid phone number");
         }
         if (password == null || password.isEmpty()) {
             return ValidationResult.error("Password is required");
@@ -63,7 +73,19 @@ public class AuthService {
         return ValidationResult.ok();
     }
 
-    private ValidationResult validateRegistration(String email, String password, String confirmPassword) {
+    private ValidationResult validateRegistration(String email, String phoneE164, String password, String confirmPassword) {
+        if (email.isEmpty()) {
+            return ValidationResult.error("Email is required");
+        }
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            return ValidationResult.error("Please enter a valid email");
+        }
+        if (phoneE164 == null || phoneE164.isEmpty()) {
+            return ValidationResult.error("Phone number is required");
+        }
+        if (!phoneE164.startsWith("+")) {
+            return ValidationResult.error("Please enter a valid phone number");
+        }
         ValidationResult signInValidation = validateSignIn(email, password);
         if (!signInValidation.isValid) {
             return signInValidation;
@@ -91,6 +113,53 @@ public class AuthService {
             return "";
         }
         return value.trim();
+    }
+
+    private String normalizeEmail(String email) {
+        return normalize(email).toLowerCase();
+    }
+
+    private String normalizeSignInIdentifier(String identifier) {
+        String value = normalize(identifier);
+        if (value.contains("@")) {
+            return normalizeEmail(value);
+        }
+        String phoneE164 = normalizePhone(value);
+        return phoneE164 == null ? value : phoneE164;
+    }
+
+    private String normalizePhone(String phone) {
+        String value = normalize(phone);
+        if (value.isEmpty()) {
+            return null;
+        }
+
+        String cleaned = value
+                .replace(" ", "")
+                .replace("-", "")
+                .replace("(", "")
+                .replace(")", "");
+
+        if (cleaned.startsWith("+")) {
+            String digits = cleaned.substring(1);
+            if (digits.length() < 8 || digits.length() > 15 || !DIGITS_PATTERN.matcher(digits).matches()) {
+                return null;
+            }
+            return "+" + digits;
+        }
+
+        if (!DIGITS_PATTERN.matcher(cleaned).matches()) {
+            return null;
+        }
+
+        if (cleaned.length() == 10) {
+            return "+1" + cleaned;
+        }
+        if (cleaned.length() == 11 && cleaned.startsWith("1")) {
+            return "+" + cleaned;
+        }
+
+        return null;
     }
 
     private static class ValidationResult {

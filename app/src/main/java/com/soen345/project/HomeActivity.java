@@ -3,7 +3,6 @@ package com.soen345.project;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -15,16 +14,22 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
-// dummy comment
+import com.soen345.project.auth.UserRole;
+
 public class HomeActivity extends AppCompatActivity {
     public static final String EXTRA_USER_EMAIL = "extra_user_email";
+    public static final String EXTRA_USER_ROLE = "extra_user_role";
 
     private AuthService authService;
     private TextView homeUserEmailText;
+    private TextView homeRoleText;
 
-    public static Intent newIntent(Context context, String userEmail) {
+    public static Intent newIntent(Context context, String userEmail, UserRole role) {
         Intent intent = new Intent(context, HomeActivity.class);
         intent.putExtra(EXTRA_USER_EMAIL, userEmail);
+        if (role != null) {
+            intent.putExtra(EXTRA_USER_ROLE, role.value());
+        }
         return intent;
     }
 
@@ -36,6 +41,7 @@ public class HomeActivity extends AppCompatActivity {
         authService = AuthServiceProvider.getAuthService();
 
         homeUserEmailText = findViewById(R.id.homeUserEmailText);
+        homeRoleText = findViewById(R.id.homeRoleText);
         Button signOutButton = findViewById(R.id.homeSignOutButton);
 
         showSignedInEmail();
@@ -60,13 +66,31 @@ public class HomeActivity extends AppCompatActivity {
         String fromIntent = getIntent().getStringExtra(EXTRA_USER_EMAIL);
         String fromSession = authService.getSignedInEmail();
         String chosenEmail = fromIntent;
-        if (chosenEmail == null || chosenEmail.isBlank()) {
+        if (isNullOrBlank(chosenEmail)) {
             chosenEmail = fromSession;
         }
-        if (chosenEmail == null || chosenEmail.isBlank()) {
+        if (isNullOrBlank(chosenEmail)) {
             chosenEmail = getString(R.string.auth_unknown_user);
         }
         homeUserEmailText.setText(getString(R.string.auth_signed_in_as, chosenEmail));
+
+        UserRole role = UserRole.fromValue(getIntent().getStringExtra(EXTRA_USER_ROLE));
+        if (role == null) {
+            role = authService.getSignedInRole();
+        }
+        String roleLabel;
+        if (role == UserRole.ADMIN) {
+            roleLabel = getString(R.string.role_administrator);
+        } else if (role == UserRole.CUSTOMER) {
+            roleLabel = getString(R.string.role_customer);
+        } else {
+            roleLabel = getString(R.string.auth_unknown_user);
+        }
+        homeRoleText.setText(getString(R.string.home_role_label, roleLabel));
+    }
+
+    private boolean isNullOrBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private void signOut() {
