@@ -1,9 +1,11 @@
 package com.soen345.project;
 
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -36,7 +38,6 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -112,11 +113,26 @@ public class HomeActivityInstrumentedTest {
                         UserRole.ADMIN
                 )
         )) {
-            onView(withId(R.id.homeAdminSection)).check(matches(isDisplayed()));
-            onView(withId(R.id.homeAddEventButton)).check(matches(isDisplayed()));
-            onView(withText("Jazz Night")).check(matches(isDisplayed()));
-            onView(withText(R.string.home_cancel_event_action)).check(matches(isDisplayed()));
-            onView(withText(R.string.home_activate_event_action)).check(matches(isDisplayed()));
+            onView(withId(R.id.homeAdminSection)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+            ignored.onActivity(activity -> {
+                LinearLayout adminSection = activity.findViewById(R.id.homeAdminSection);
+                Button addEvent = activity.findViewById(R.id.homeAddEventButton);
+                LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+
+                assertEquals(View.VISIBLE, adminSection.getVisibility());
+                assertEquals(View.VISIBLE, addEvent.getVisibility());
+                assertEquals(2, container.getChildCount());
+
+                View firstItem = container.getChildAt(0);
+                View secondItem = container.getChildAt(1);
+                TextView firstTitle = firstItem.findViewById(R.id.eventItemTitle);
+                Button firstStatusButton = firstItem.findViewById(R.id.eventItemStatusButton);
+                Button secondStatusButton = secondItem.findViewById(R.id.eventItemStatusButton);
+
+                assertEquals("Jazz Night", firstTitle.getText().toString());
+                assertEquals(activity.getString(R.string.home_cancel_event_action), firstStatusButton.getText().toString());
+                assertEquals(activity.getString(R.string.home_activate_event_action), secondStatusButton.getText().toString());
+            });
         }
     }
 
