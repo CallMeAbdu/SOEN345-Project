@@ -66,10 +66,10 @@ public class HomeActivity extends AppCompatActivity {
         String fromIntent = getIntent().getStringExtra(EXTRA_USER_EMAIL);
         String fromSession = authService.getSignedInEmail();
         String chosenEmail = fromIntent;
-        if (chosenEmail == null || chosenEmail.isBlank()) {
+        if (isNullOrBlank(chosenEmail)) {
             chosenEmail = fromSession;
         }
-        if (chosenEmail == null || chosenEmail.isBlank()) {
+        if (isNullOrBlank(chosenEmail)) {
             chosenEmail = getString(R.string.auth_unknown_user);
         }
         homeUserEmailText.setText(getString(R.string.auth_signed_in_as, chosenEmail));
@@ -87,6 +87,10 @@ public class HomeActivity extends AppCompatActivity {
             roleLabel = getString(R.string.auth_unknown_user);
         }
         homeRoleText.setText(getString(R.string.home_role_label, roleLabel));
+    }
+
+    private boolean isNullOrBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private void signOut() {
