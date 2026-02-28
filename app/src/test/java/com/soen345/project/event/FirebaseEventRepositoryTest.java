@@ -36,6 +36,11 @@ public class FirebaseEventRepositoryTest {
     private CollectionReference eventsCollection;
     private FirebaseEventRepository repository;
 
+    @Test(expected = IllegalArgumentException.class)
+    public void constructor_withNullFirestore_throws() {
+        new FirebaseEventRepository(null);
+    }
+
     @Before
     public void setUp() {
         firestore = mock(FirebaseFirestore.class);
@@ -91,6 +96,37 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void loadEvents_parsesDateString_whenTimestampMissing() {
+        @SuppressWarnings("unchecked")
+        Task<QuerySnapshot> queryTask = mock(Task.class);
+        QuerySnapshot querySnapshot = mock(QuerySnapshot.class);
+        DocumentSnapshot dateStringDoc = mock(DocumentSnapshot.class);
+
+        when(eventsCollection.get()).thenReturn(queryTask);
+        ArgumentCaptor<OnSuccessListener<QuerySnapshot>> successCaptor = successCaptor();
+        when(queryTask.addOnSuccessListener(successCaptor.capture())).thenReturn(queryTask);
+        when(queryTask.addOnFailureListener(any())).thenReturn(queryTask);
+        when(querySnapshot.getDocuments()).thenReturn(Arrays.asList(dateStringDoc));
+
+        when(dateStringDoc.getId()).thenReturn("doc-1");
+        when(dateStringDoc.get("eventId")).thenReturn("event-1");
+        when(dateStringDoc.get("title")).thenReturn("String Date Event");
+        when(dateStringDoc.get("category")).thenReturn("Music");
+        when(dateStringDoc.get("location")).thenReturn("Hall");
+        when(dateStringDoc.get("dateTime")).thenReturn("2026-05-15 20:00");
+        when(dateStringDoc.get("status")).thenReturn("ACTIVE");
+        when(dateStringDoc.get("capacityTotal")).thenReturn(100L);
+        when(dateStringDoc.get("capacityRemaining")).thenReturn(90L);
+
+        TestListCallback callback = new TestListCallback();
+        repository.loadEvents(callback);
+        successCaptor.getValue().onSuccess(querySnapshot);
+
+        assertEquals(1, callback.events.size());
+        assertTrue(callback.events.get(0).getDateTimeMillis() > 0L);
+    }
+
+    @Test
     public void createEvent_writesSchemaWithoutCreatedOrUpdatedAt() {
         DocumentReference document = mock(DocumentReference.class);
         @SuppressWarnings("unchecked")
@@ -124,6 +160,13 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void createEvent_withNullEvent_returnsError() {
+        TestActionCallback callback = new TestActionCallback();
+        repository.createEvent(null, callback);
+        assertEquals("Event cannot be null.", callback.error);
+    }
+
+    @Test
     public void updateEvent_writesSchemaWithoutCreatedOrUpdatedAt() {
         DocumentReference document = mock(DocumentReference.class);
         @SuppressWarnings("unchecked")
@@ -147,6 +190,16 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void updateEvent_withMissingDocumentId_returnsError() {
+        TestActionCallback callback = new TestActionCallback();
+        Event missingDocument = new Event("", "event-1", "Title", "Category", "Location", 123L, EventStatus.ACTIVE, 10, 5);
+
+        repository.updateEvent(missingDocument, callback);
+
+        assertEquals("Invalid event.", callback.error);
+    }
+
+    @Test
     public void updateStatus_updatesOnlyStatusField() {
         DocumentReference document = mock(DocumentReference.class);
         @SuppressWarnings("unchecked")
@@ -160,6 +213,29 @@ public class FirebaseEventRepositoryTest {
         repository.updateStatus("doc-1", EventStatus.CANCELLED, new TestActionCallback());
 
         verify(document).update(eq("status"), eq("CANCELLED"));
+    }
+
+    @Test
+    public void updateStatus_withNullStatus_defaultsToActive() {
+        DocumentReference document = mock(DocumentReference.class);
+        @SuppressWarnings("unchecked")
+        Task<Void> updateTask = mock(Task.class);
+
+        when(eventsCollection.document("doc-1")).thenReturn(document);
+        when(document.update(anyString(), any())).thenReturn(updateTask);
+        when(updateTask.addOnSuccessListener(any())).thenReturn(updateTask);
+        when(updateTask.addOnFailureListener(any())).thenReturn(updateTask);
+
+        repository.updateStatus("doc-1", null, new TestActionCallback());
+
+        verify(document).update(eq("status"), eq("ACTIVE"));
+    }
+
+    @Test
+    public void updateStatus_withBlankDocumentId_returnsError() {
+        TestActionCallback callback = new TestActionCallback();
+        repository.updateStatus("   ", EventStatus.ACTIVE, callback);
+        assertEquals("Invalid event.", callback.error);
     }
 
     @Test

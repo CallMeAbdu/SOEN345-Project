@@ -20,6 +20,11 @@ public class EventServiceTest {
         eventService = new EventService(fakeEventRepository);
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void constructor_withNullRepository_throws() {
+        new EventService(null);
+    }
+
     @Test
     public void createEvent_trimsFieldsAndUsesActiveStatus() {
         eventService.createEvent("  Title  ", "  Music  ", "  Hall  ", 111L, 200, 150, new TestActionCallback());
@@ -63,6 +68,15 @@ public class EventServiceTest {
 
         assertEquals("doc-1", fakeEventRepository.lastStatusDocumentId);
         assertEquals(EventStatus.CANCELLED, fakeEventRepository.lastStatus);
+    }
+
+    @Test
+    public void updateEventStatus_withNullEvent_returnsError() {
+        TestActionCallback callback = new TestActionCallback();
+
+        eventService.updateEventStatus(null, EventStatus.CANCELLED, callback);
+
+        assertEquals("Invalid event.", callback.error);
     }
 
     @Test

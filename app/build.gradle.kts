@@ -36,6 +36,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    extensions.getByType(org.gradle.testing.jacoco.plugins.JacocoTaskExtension::class.java).apply {
+        isIncludeNoLocationClasses = true
+        excludes = mutableListOf("jdk.internal.*")
+    }
 }
 
 dependencies {
@@ -47,6 +59,8 @@ dependencies {
     implementation(libs.firebase.auth)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
