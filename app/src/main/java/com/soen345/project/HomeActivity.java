@@ -118,9 +118,11 @@ public class HomeActivity extends AppCompatActivity {
         if (isNullOrBlank(chosenEmail)) {
             chosenEmail = fromSession;
         }
+
         if (isNullOrBlank(chosenEmail)) {
             chosenEmail = getString(R.string.auth_unknown_user);
         }
+
         homeUserEmailText.setText(getString(R.string.auth_signed_in_as, chosenEmail));
 
         UserRole role = UserRole.fromValue(getIntent().getStringExtra(EXTRA_USER_ROLE));
