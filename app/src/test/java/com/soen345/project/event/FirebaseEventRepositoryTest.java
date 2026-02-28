@@ -23,6 +23,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -96,6 +97,12 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void loadEvents_withNullCallback_doesNothing() {
+        repository.loadEvents(null);
+        verify(eventsCollection, never()).get();
+    }
+
+    @Test
     public void loadEvents_parsesDateString_whenTimestampMissing() {
         @SuppressWarnings("unchecked")
         Task<QuerySnapshot> queryTask = mock(Task.class);
@@ -124,6 +131,145 @@ public class FirebaseEventRepositoryTest {
 
         assertEquals(1, callback.events.size());
         assertTrue(callback.events.get(0).getDateTimeMillis() > 0L);
+    }
+
+    @Test
+    public void loadEvents_skipsMalformedDocuments_andContinues() {
+        @SuppressWarnings("unchecked")
+        Task<QuerySnapshot> queryTask = mock(Task.class);
+        QuerySnapshot querySnapshot = mock(QuerySnapshot.class);
+        DocumentSnapshot malformed = mock(DocumentSnapshot.class);
+        DocumentSnapshot valid = mock(DocumentSnapshot.class);
+
+        when(eventsCollection.get()).thenReturn(queryTask);
+        ArgumentCaptor<OnSuccessListener<QuerySnapshot>> successCaptor = successCaptor();
+        when(queryTask.addOnSuccessListener(successCaptor.capture())).thenReturn(queryTask);
+        when(queryTask.addOnFailureListener(any())).thenReturn(queryTask);
+        when(querySnapshot.getDocuments()).thenReturn(Arrays.asList(malformed, valid));
+
+        when(malformed.getId()).thenReturn("bad");
+        when(malformed.get("eventId")).thenThrow(new RuntimeException("bad doc"));
+
+        when(valid.getId()).thenReturn("doc-1");
+        when(valid.get("eventId")).thenReturn("event-1");
+        when(valid.get("title")).thenReturn("Good Event");
+        when(valid.get("category")).thenReturn("Music");
+        when(valid.get("location")).thenReturn("Hall");
+        when(valid.get("dateTime")).thenReturn(new Timestamp(new Date(1000L)));
+        when(valid.get("status")).thenReturn("ACTIVE");
+        when(valid.get("capacityTotal")).thenReturn(20);
+        when(valid.get("capacityRemaining")).thenReturn(15);
+
+        TestListCallback callback = new TestListCallback();
+        repository.loadEvents(callback);
+        successCaptor.getValue().onSuccess(querySnapshot);
+
+        assertEquals(1, callback.events.size());
+        assertEquals("Good Event", callback.events.get(0).getTitle());
+    }
+
+    @Test
+    public void loadEvents_mapsFallbacksAndParsingBranches() {
+        @SuppressWarnings("unchecked")
+        Task<QuerySnapshot> queryTask = mock(Task.class);
+        QuerySnapshot querySnapshot = mock(QuerySnapshot.class);
+        DocumentSnapshot invalidDateAndFallbackDoc = mock(DocumentSnapshot.class);
+        DocumentSnapshot nullDateDoc = mock(DocumentSnapshot.class);
+        DocumentSnapshot dateDoc = mock(DocumentSnapshot.class);
+        DocumentSnapshot longDoc = mock(DocumentSnapshot.class);
+        DocumentSnapshot stringInvalidDoc = mock(DocumentSnapshot.class);
+
+        when(eventsCollection.get()).thenReturn(queryTask);
+        ArgumentCaptor<OnSuccessListener<QuerySnapshot>> successCaptor = successCaptor();
+        when(queryTask.addOnSuccessListener(successCaptor.capture())).thenReturn(queryTask);
+        when(queryTask.addOnFailureListener(any())).thenReturn(queryTask);
+        when(querySnapshot.getDocuments()).thenReturn(Arrays.asList(
+                invalidDateAndFallbackDoc,
+                nullDateDoc,
+                dateDoc,
+                longDoc,
+                stringInvalidDoc
+        ));
+
+        when(invalidDateAndFallbackDoc.getId()).thenReturn("doc-fallback");
+        when(invalidDateAndFallbackDoc.get("eventId")).thenReturn("   ");
+        when(invalidDateAndFallbackDoc.get("title")).thenReturn(null);
+        when(invalidDateAndFallbackDoc.get("category")).thenReturn("Cat");
+        when(invalidDateAndFallbackDoc.get("location")).thenReturn("Loc");
+        when(invalidDateAndFallbackDoc.get("dateTime")).thenReturn("not-a-date");
+        when(invalidDateAndFallbackDoc.get("status")).thenReturn("");
+        when(invalidDateAndFallbackDoc.getBoolean("cancelled")).thenReturn(false);
+        when(invalidDateAndFallbackDoc.get("capacityTotal")).thenReturn(new Object());
+        when(invalidDateAndFallbackDoc.get("capacityRemaining")).thenReturn(-5);
+
+        when(nullDateDoc.getId()).thenReturn("doc-null-date");
+        when(nullDateDoc.get("eventId")).thenReturn("event-null-date");
+        when(nullDateDoc.get("title")).thenReturn("No Date");
+        when(nullDateDoc.get("category")).thenReturn("Cat");
+        when(nullDateDoc.get("location")).thenReturn("Loc");
+        when(nullDateDoc.get("dateTime")).thenReturn(null);
+        when(nullDateDoc.get("status")).thenReturn("ACTIVE");
+        when(nullDateDoc.get("capacityTotal")).thenReturn(1);
+        when(nullDateDoc.get("capacityRemaining")).thenReturn(1);
+
+        when(dateDoc.getId()).thenReturn("doc-date");
+        when(dateDoc.get("eventId")).thenReturn("event-date");
+        when(dateDoc.get("title")).thenReturn("Date Event");
+        when(dateDoc.get("category")).thenReturn("Cat");
+        when(dateDoc.get("location")).thenReturn("Loc");
+        when(dateDoc.get("dateTime")).thenReturn(new Date(2000L));
+        when(dateDoc.get("status")).thenReturn("ACTIVE");
+        when(dateDoc.get("capacityTotal")).thenReturn(10);
+        when(dateDoc.get("capacityRemaining")).thenReturn(7.9D);
+
+        when(longDoc.getId()).thenReturn("doc-long");
+        when(longDoc.get("eventId")).thenReturn("event-long");
+        when(longDoc.get("title")).thenReturn("Long Event");
+        when(longDoc.get("category")).thenReturn("Cat");
+        when(longDoc.get("location")).thenReturn("Loc");
+        when(longDoc.get("dateTime")).thenReturn(3000L);
+        when(longDoc.get("status")).thenReturn("ACTIVE");
+        when(longDoc.get("capacityTotal")).thenReturn("12");
+        when(longDoc.get("capacityRemaining")).thenReturn("99");
+
+        when(stringInvalidDoc.getId()).thenReturn("doc-string-invalid");
+        when(stringInvalidDoc.get("eventId")).thenReturn("event-string-invalid");
+        when(stringInvalidDoc.get("title")).thenReturn("String Invalid");
+        when(stringInvalidDoc.get("category")).thenReturn("Cat");
+        when(stringInvalidDoc.get("location")).thenReturn("Loc");
+        when(stringInvalidDoc.get("dateTime")).thenReturn(new Timestamp(new Date(1500L)));
+        when(stringInvalidDoc.get("status")).thenReturn("ACTIVE");
+        when(stringInvalidDoc.get("capacityTotal")).thenReturn("5");
+        when(stringInvalidDoc.get("capacityRemaining")).thenReturn("oops");
+
+        TestListCallback callback = new TestListCallback();
+        repository.loadEvents(callback);
+        successCaptor.getValue().onSuccess(querySnapshot);
+
+        Event fallbackEvent = findByDocumentId(callback.events, "doc-fallback");
+        assertNotNull(fallbackEvent);
+        assertEquals("doc-fallback", fallbackEvent.getEventId());
+        assertEquals("", fallbackEvent.getTitle());
+        assertEquals(EventStatus.ACTIVE, fallbackEvent.getStatus());
+        assertEquals(0L, fallbackEvent.getDateTimeMillis());
+        assertEquals(0, fallbackEvent.getCapacityTotal());
+        assertEquals(0, fallbackEvent.getCapacityRemaining());
+
+        Event dateEvent = findByDocumentId(callback.events, "doc-date");
+        assertNotNull(dateEvent);
+        assertEquals(2000L, dateEvent.getDateTimeMillis());
+        assertEquals(10, dateEvent.getCapacityTotal());
+        assertEquals(7, dateEvent.getCapacityRemaining());
+
+        Event longEvent = findByDocumentId(callback.events, "doc-long");
+        assertNotNull(longEvent);
+        assertEquals(3000L, longEvent.getDateTimeMillis());
+        assertEquals(12, longEvent.getCapacityTotal());
+        assertEquals(12, longEvent.getCapacityRemaining());
+
+        Event invalidStringEvent = findByDocumentId(callback.events, "doc-string-invalid");
+        assertNotNull(invalidStringEvent);
+        assertEquals(5, invalidStringEvent.getCapacityRemaining());
     }
 
     @Test
@@ -160,10 +306,42 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void createEvent_withNullCallback_returnsWithoutWrite() {
+        Event event = new Event("", "", "Title", "Category", "Location", 123456L, EventStatus.ACTIVE, 300, 250);
+        repository.createEvent(event, null);
+        verify(eventsCollection, never()).document();
+    }
+
+    @Test
     public void createEvent_withNullEvent_returnsError() {
         TestActionCallback callback = new TestActionCallback();
         repository.createEvent(null, callback);
         assertEquals("Event cannot be null.", callback.error);
+    }
+
+    @Test
+    public void createEvent_propagatesSuccessAndFallbackFailureMessage() {
+        DocumentReference document = mock(DocumentReference.class);
+        @SuppressWarnings("unchecked")
+        Task<Void> writeTask = mock(Task.class);
+        ArgumentCaptor<OnSuccessListener<Void>> successCaptor = successCaptor();
+        ArgumentCaptor<OnFailureListener> failureCaptor = ArgumentCaptor.forClass(OnFailureListener.class);
+
+        when(eventsCollection.document()).thenReturn(document);
+        when(document.getId()).thenReturn("doc-created");
+        when(document.set(anyMap())).thenReturn(writeTask);
+        when(writeTask.addOnSuccessListener(successCaptor.capture())).thenReturn(writeTask);
+        when(writeTask.addOnFailureListener(failureCaptor.capture())).thenReturn(writeTask);
+
+        TestActionCallback callback = new TestActionCallback();
+        Event event = new Event("", "", "Title", "Category", "Location", 123456L, EventStatus.ACTIVE, 300, 250);
+        repository.createEvent(event, callback);
+
+        successCaptor.getValue().onSuccess(null);
+        assertEquals(1, callback.successCalls);
+
+        failureCaptor.getValue().onFailure(new RuntimeException("   "));
+        assertEquals("Could not save event.", callback.error);
     }
 
     @Test
@@ -197,6 +375,56 @@ public class FirebaseEventRepositoryTest {
         repository.updateEvent(missingDocument, callback);
 
         assertEquals("Invalid event.", callback.error);
+    }
+
+    @Test
+    public void updateEvent_withNullCallback_returnsWithoutWrite() {
+        Event event = new Event("doc-1", "event-1", "Title", "Category", "Location", 123L, EventStatus.ACTIVE, 10, 5);
+        repository.updateEvent(event, null);
+        verify(eventsCollection, never()).document(anyString());
+    }
+
+    @Test
+    public void updateEvent_withBlankEventId_usesDocumentIdAsEventId() {
+        DocumentReference document = mock(DocumentReference.class);
+        @SuppressWarnings("unchecked")
+        Task<Void> updateTask = mock(Task.class);
+        ArgumentCaptor<Map<String, Object>> updateMapCaptor = ArgumentCaptor.forClass(Map.class);
+
+        when(eventsCollection.document("doc-1")).thenReturn(document);
+        when(document.update(updateMapCaptor.capture())).thenReturn(updateTask);
+        when(updateTask.addOnSuccessListener(any())).thenReturn(updateTask);
+        when(updateTask.addOnFailureListener(any())).thenReturn(updateTask);
+
+        Event event = new Event("doc-1", "   ", "Title", "Category", "Location", 123456L, EventStatus.ACTIVE, 10, 5);
+        repository.updateEvent(event, new TestActionCallback());
+
+        Map<String, Object> data = updateMapCaptor.getValue();
+        assertEquals("doc-1", data.get("eventId"));
+    }
+
+    @Test
+    public void updateEvent_propagatesSuccessAndFallbackFailureMessage() {
+        DocumentReference document = mock(DocumentReference.class);
+        @SuppressWarnings("unchecked")
+        Task<Void> updateTask = mock(Task.class);
+        ArgumentCaptor<OnSuccessListener<Void>> successCaptor = successCaptor();
+        ArgumentCaptor<OnFailureListener> failureCaptor = ArgumentCaptor.forClass(OnFailureListener.class);
+
+        when(eventsCollection.document("doc-1")).thenReturn(document);
+        when(document.update(anyMap())).thenReturn(updateTask);
+        when(updateTask.addOnSuccessListener(successCaptor.capture())).thenReturn(updateTask);
+        when(updateTask.addOnFailureListener(failureCaptor.capture())).thenReturn(updateTask);
+
+        TestActionCallback callback = new TestActionCallback();
+        Event event = new Event("doc-1", "event-1", "Title", "Category", "Location", 123456L, EventStatus.ACTIVE, 10, 5);
+        repository.updateEvent(event, callback);
+
+        successCaptor.getValue().onSuccess(null);
+        assertEquals(1, callback.successCalls);
+
+        failureCaptor.getValue().onFailure(new RuntimeException(" "));
+        assertEquals("Could not save event.", callback.error);
     }
 
     @Test
@@ -239,6 +467,35 @@ public class FirebaseEventRepositoryTest {
     }
 
     @Test
+    public void updateStatus_withNullCallback_returnsWithoutWrite() {
+        repository.updateStatus("doc-1", EventStatus.ACTIVE, null);
+        verify(eventsCollection, never()).document(anyString());
+    }
+
+    @Test
+    public void updateStatus_propagatesSuccessAndFallbackFailureMessage() {
+        DocumentReference document = mock(DocumentReference.class);
+        @SuppressWarnings("unchecked")
+        Task<Void> updateTask = mock(Task.class);
+        ArgumentCaptor<OnSuccessListener<Void>> successCaptor = successCaptor();
+        ArgumentCaptor<OnFailureListener> failureCaptor = ArgumentCaptor.forClass(OnFailureListener.class);
+
+        when(eventsCollection.document("doc-1")).thenReturn(document);
+        when(document.update(anyString(), any())).thenReturn(updateTask);
+        when(updateTask.addOnSuccessListener(successCaptor.capture())).thenReturn(updateTask);
+        when(updateTask.addOnFailureListener(failureCaptor.capture())).thenReturn(updateTask);
+
+        TestActionCallback callback = new TestActionCallback();
+        repository.updateStatus("doc-1", EventStatus.CANCELLED, callback);
+
+        successCaptor.getValue().onSuccess(null);
+        assertEquals(1, callback.successCalls);
+
+        failureCaptor.getValue().onFailure(new RuntimeException(""));
+        assertEquals("Could not update event status.", callback.error);
+    }
+
+    @Test
     public void loadEvents_withFailure_returnsErrorMessage() {
         @SuppressWarnings("unchecked")
         Task<QuerySnapshot> queryTask = mock(Task.class);
@@ -252,6 +509,31 @@ public class FirebaseEventRepositoryTest {
         failureCaptor.getValue().onFailure(new RuntimeException("boom"));
 
         assertTrue(callback.error.contains("boom"));
+    }
+
+    @Test
+    public void loadEvents_withBlankFailureMessage_usesFallback() {
+        @SuppressWarnings("unchecked")
+        Task<QuerySnapshot> queryTask = mock(Task.class);
+        when(eventsCollection.get()).thenReturn(queryTask);
+        when(queryTask.addOnSuccessListener(any())).thenReturn(queryTask);
+        ArgumentCaptor<OnFailureListener> failureCaptor = ArgumentCaptor.forClass(OnFailureListener.class);
+        when(queryTask.addOnFailureListener(failureCaptor.capture())).thenReturn(queryTask);
+
+        TestListCallback callback = new TestListCallback();
+        repository.loadEvents(callback);
+        failureCaptor.getValue().onFailure(new RuntimeException(" "));
+
+        assertEquals("Failed to load events.", callback.error);
+    }
+
+    private Event findByDocumentId(List<Event> events, String documentId) {
+        for (Event event : events) {
+            if (documentId.equals(event.getDocumentId())) {
+                return event;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -276,10 +558,11 @@ public class FirebaseEventRepositoryTest {
 
     private static final class TestActionCallback implements EventActionCallback {
         private String error;
+        private int successCalls;
 
         @Override
         public void onSuccess() {
-            // no-op
+            successCalls++;
         }
 
         @Override
