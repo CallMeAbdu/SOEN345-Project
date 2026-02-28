@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.soen345.project.auth.AuthCallback;
@@ -103,26 +104,157 @@ public class MainActivityRobolectricTest {
         assertTrue(authRepository.signOutCalls > 0);
     }
 
+    @Test
+    public void submitAuth_signInSuccess_navigatesToHomeAndPassesCredentials() {
+        authRepository.autoCompleteAuth = false;
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).setup().get();
+
+        EditText email = activity.findViewById(R.id.emailInput);
+        EditText password = activity.findViewById(R.id.passwordInput);
+        Button authButton = activity.findViewById(R.id.authButton);
+        ProgressBar progressBar = activity.findViewById(R.id.authProgressBar);
+
+        email.setText("seed@example.com");
+        password.setText("password123");
+        authButton.performClick();
+
+        assertEquals(1, authRepository.signInCalls);
+        assertEquals("seed@example.com", authRepository.lastSignInIdentifier);
+        assertEquals("password123", authRepository.lastSignInPassword);
+        assertEquals(View.VISIBLE, progressBar.getVisibility());
+        assertTrue(!authButton.isEnabled());
+
+        authRepository.completePendingSignInSuccess();
+
+        Intent startedIntent = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(startedIntent);
+        assertEquals(HomeActivity.class.getName(), startedIntent.getComponent().getClassName());
+        assertEquals(View.GONE, progressBar.getVisibility());
+        assertTrue(authButton.isEnabled());
+    }
+
+    @Test
+    public void submitAuth_signInError_showsStatusAndStopsLoading() {
+        authRepository.signInError = "bad credentials";
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).setup().get();
+
+        EditText email = activity.findViewById(R.id.emailInput);
+        EditText password = activity.findViewById(R.id.passwordInput);
+        Button authButton = activity.findViewById(R.id.authButton);
+        ProgressBar progressBar = activity.findViewById(R.id.authProgressBar);
+        TextView statusText = activity.findViewById(R.id.authStatusText);
+
+        email.setText("seed@example.com");
+        password.setText("wrong");
+        authButton.performClick();
+
+        assertEquals(1, authRepository.signInCalls);
+        assertEquals(View.VISIBLE, statusText.getVisibility());
+        assertEquals("bad credentials", statusText.getText().toString());
+        assertEquals(View.GONE, progressBar.getVisibility());
+        assertTrue(authButton.isEnabled());
+    }
+
+    @Test
+    public void submitAuth_registerMode_callsRegisterAndShowsError() {
+        authRepository.registerError = "phone already exists";
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).setup().get();
+
+        TextView modeSwitch = activity.findViewById(R.id.modeSwitchText);
+        EditText email = activity.findViewById(R.id.emailInput);
+        EditText phone = activity.findViewById(R.id.phoneInput);
+        EditText password = activity.findViewById(R.id.passwordInput);
+        EditText confirm = activity.findViewById(R.id.confirmPasswordInput);
+        Button authButton = activity.findViewById(R.id.authButton);
+        TextView statusText = activity.findViewById(R.id.authStatusText);
+
+        modeSwitch.performClick();
+        email.setText("new@example.com");
+        phone.setText("+15145550100");
+        password.setText("password123");
+        confirm.setText("password123");
+        authButton.performClick();
+
+        assertEquals(1, authRepository.registerCalls);
+        assertEquals("new@example.com", authRepository.lastRegisterEmail);
+        assertEquals("+15145550100", authRepository.lastRegisterPhone);
+        assertEquals("password123", authRepository.lastRegisterPassword);
+        assertEquals(View.VISIBLE, statusText.getVisibility());
+        assertEquals("phone already exists", statusText.getText().toString());
+    }
+
+    @Test
+    public void modeSwitch_hidesStatusErrorText() {
+        authRepository.signInError = "bad credentials";
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).setup().get();
+
+        EditText email = activity.findViewById(R.id.emailInput);
+        EditText password = activity.findViewById(R.id.passwordInput);
+        TextView modeSwitch = activity.findViewById(R.id.modeSwitchText);
+        TextView statusText = activity.findViewById(R.id.authStatusText);
+
+        email.setText("seed@example.com");
+        password.setText("wrong");
+        activity.findViewById(R.id.authButton).performClick();
+        assertEquals(View.VISIBLE, statusText.getVisibility());
+
+        modeSwitch.performClick();
+        assertEquals(View.GONE, statusText.getVisibility());
+    }
+
     private static final class FakeAuthRepository implements AuthRepository {
         private boolean signedIn;
         private String signedInEmail;
         private UserRole signedInRole;
         private int signOutCalls;
+        private int signInCalls;
+        private int registerCalls;
+        private String lastSignInIdentifier;
+        private String lastSignInPassword;
+        private String lastRegisterEmail;
+        private String lastRegisterPhone;
+        private String lastRegisterPassword;
+        private boolean autoCompleteAuth = true;
+        private String signInError;
+        private String registerError;
+        private AuthCallback pendingSignInCallback;
+        private AuthCallback pendingRegisterCallback;
 
         @Override
         public void signIn(String identifier, String password, AuthCallback callback) {
-            signedIn = true;
-            signedInEmail = identifier;
-            signedInRole = UserRole.CUSTOMER;
-            callback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            signInCalls++;
+            lastSignInIdentifier = identifier;
+            lastSignInPassword = password;
+            pendingSignInCallback = callback;
+            if (autoCompleteAuth) {
+                if (signInError != null) {
+                    callback.onError(signInError);
+                    return;
+                }
+                signedIn = true;
+                signedInEmail = identifier;
+                signedInRole = UserRole.CUSTOMER;
+                callback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            }
         }
 
         @Override
         public void register(String email, String phoneE164, String password, AuthCallback callback) {
-            signedIn = true;
-            signedInEmail = email;
-            signedInRole = UserRole.CUSTOMER;
-            callback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            registerCalls++;
+            lastRegisterEmail = email;
+            lastRegisterPhone = phoneE164;
+            lastRegisterPassword = password;
+            pendingRegisterCallback = callback;
+            if (autoCompleteAuth) {
+                if (registerError != null) {
+                    callback.onError(registerError);
+                    return;
+                }
+                signedIn = true;
+                signedInEmail = email;
+                signedInRole = UserRole.CUSTOMER;
+                callback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            }
         }
 
         @Override
@@ -146,6 +278,28 @@ public class MainActivityRobolectricTest {
             signedIn = false;
             signedInEmail = null;
             signedInRole = null;
+        }
+
+        void completePendingSignInSuccess() {
+            if (pendingSignInCallback == null) {
+                return;
+            }
+            signedIn = true;
+            signedInEmail = lastSignInIdentifier;
+            signedInRole = UserRole.CUSTOMER;
+            pendingSignInCallback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            pendingSignInCallback = null;
+        }
+
+        void completePendingRegisterSuccess() {
+            if (pendingRegisterCallback == null) {
+                return;
+            }
+            signedIn = true;
+            signedInEmail = lastRegisterEmail;
+            signedInRole = UserRole.CUSTOMER;
+            pendingRegisterCallback.onSuccess(new AuthSession(signedInEmail, signedInRole));
+            pendingRegisterCallback = null;
         }
     }
 }
