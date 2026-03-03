@@ -107,9 +107,16 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
         showSignedInEmail();
-        if (signedInRole == UserRole.ADMIN) {
-            loadEvents();
+
+        // Guard: customers should never be on this screen
+        if (signedInRole != UserRole.ADMIN) {
+            startActivity(BrowseEventsActivity.newIntent(this,
+                    authService.getSignedInEmail(), signedInRole != null ? signedInRole.value() : null));
+            finish();
+            return;
         }
+
+        loadEvents();
     }
 
     private void showSignedInEmail() {
