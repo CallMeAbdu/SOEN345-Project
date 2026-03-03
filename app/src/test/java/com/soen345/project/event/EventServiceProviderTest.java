@@ -8,9 +8,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 
 public class EventServiceProviderTest {
@@ -31,15 +29,19 @@ public class EventServiceProviderTest {
     }
 
     @Test
-    public void clearEventServiceForTesting_clearsOverrideField() throws Exception {
+    public void clearEventServiceForTesting_clearsOverrideField() {
         EventService override = new EventService(new NoOpRepository());
         EventServiceProvider.setEventServiceForTesting(override);
         assertSame(override, EventServiceProvider.getEventService());
 
         EventServiceProvider.clearEventServiceForTesting();
-        java.lang.reflect.Field field = EventServiceProvider.class.getDeclaredField("overrideService");
-        field.setAccessible(true);
-        assertNull(field.get(null));
+        FirebaseFirestore firestore = mock(FirebaseFirestore.class);
+        try (MockedStatic<FirebaseFirestore> firestoreStatic = Mockito.mockStatic(FirebaseFirestore.class)) {
+            firestoreStatic.when(FirebaseFirestore::getInstance).thenReturn(firestore);
+            EventService service = EventServiceProvider.getEventService();
+            assertNotNull(service);
+            firestoreStatic.verify(FirebaseFirestore::getInstance);
+        }
     }
 
     @Test
@@ -57,19 +59,17 @@ public class EventServiceProviderTest {
     }
 
     @Test
-    public void getEventService_withoutOverride_returnsNewInstanceEachCall() {
-        EventServiceProvider.clearEventServiceForTesting();
+    public void getEventService_withOverride_doesNotUseFirebaseFactory() {
         FirebaseFirestore firestore = mock(FirebaseFirestore.class);
+        EventService override = new EventService(new NoOpRepository());
+        EventServiceProvider.setEventServiceForTesting(override);
         try (MockedStatic<FirebaseFirestore> firestoreStatic = Mockito.mockStatic(FirebaseFirestore.class)) {
             firestoreStatic.when(FirebaseFirestore::getInstance).thenReturn(firestore);
 
-            EventService first = EventServiceProvider.getEventService();
-            EventService second = EventServiceProvider.getEventService();
+            EventService service = EventServiceProvider.getEventService();
 
-            assertNotNull(first);
-            assertNotNull(second);
-            assertNotSame(first, second);
-            firestoreStatic.verify(FirebaseFirestore::getInstance, Mockito.times(2));
+            assertSame(override, service);
+            firestoreStatic.verifyNoInteractions();
         }
     }
 

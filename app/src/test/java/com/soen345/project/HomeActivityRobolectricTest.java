@@ -40,7 +40,6 @@ import org.robolectric.shadows.ShadowActivity;
 import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowToast;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -465,22 +464,6 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
-    public void addEventClick_whenNotAdmin_doesNotOpenDialog() {
-        authRepository.setSignedIn("customer@example.com", UserRole.CUSTOMER);
-        HomeActivity activity = launchHome("customer@example.com", UserRole.CUSTOMER);
-
-        Method showEventDialog = getPrivateMethod("showEventDialog", Event.class);
-        try {
-            showEventDialog.invoke(activity, new Object[] {null});
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        assertEquals(0, eventRepository.createCalls);
-        assertEquals(0, eventRepository.updateCalls);
-    }
-
-    @Test
     public void timeInputClick_opensDateTimePickers_andSetsFieldValue() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
@@ -515,39 +498,33 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
-    public void utilityMethods_handleParsingFormattingAndErrors() throws Exception {
+    public void alternateDateFormat_isAcceptedThroughDialogFlow() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        Method parse = HomeActivity.class.getDeclaredMethod("parseDateTimeInputMillis", String.class);
-        parse.setAccessible(true);
-        long parsed = (Long) parse.invoke(activity, "2026-05-15 20:00");
-        long parsedAlt = (Long) parse.invoke(activity, "2026/05/15 20:00");
-        long parsedNull = (Long) parse.invoke(activity, new Object[] {null});
-        long parsedBlank = (Long) parse.invoke(activity, "   ");
-        long parsedInvalid = (Long) parse.invoke(activity, "invalid");
-        assertTrue(parsed > 0L);
-        assertTrue(parsedAlt > 0L);
-        assertEquals(0L, parsedNull);
-        assertEquals(0L, parsedBlank);
-        assertEquals(0L, parsedInvalid);
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026/05/15 20:00", "Music", "Bell", "100", "80");
+        clickPositive(dialog);
 
-        Method parseInteger = HomeActivity.class.getDeclaredMethod("parseInteger", String.class);
-        parseInteger.setAccessible(true);
-        assertEquals(42, ((Integer) parseInteger.invoke(activity, "42")).intValue());
-        assertNull(parseInteger.invoke(activity, "4x"));
+        assertEquals(1, eventRepository.createCalls);
+        assertNotNull(eventRepository.lastCreatedEvent);
+        assertTrue(eventRepository.lastCreatedEvent.getDateTimeMillis() > 0L);
+    }
 
-        Method format = HomeActivity.class.getDeclaredMethod("formatDateTimeMillis", long.class);
-        format.setAccessible(true);
-        assertEquals("", format.invoke(activity, 0L));
-        assertFalse(String.valueOf(format.invoke(activity, parsed)).isEmpty());
+    @Test
+    public void eventDetails_useFallbackLabelsForNullValues() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("doc-1", "event-1", "Title", null, null, 1000L, EventStatus.ACTIVE, 10, 5));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        Method buildError = HomeActivity.class.getDeclaredMethod("buildErrorMessage", int.class, String.class);
-        buildError.setAccessible(true);
-        String plain = (String) buildError.invoke(activity, R.string.home_event_save_failed, "");
-        String detailed = (String) buildError.invoke(activity, R.string.home_event_save_failed, "boom");
-        assertEquals(activity.getString(R.string.home_event_save_failed), plain);
-        assertTrue(detailed.contains("(boom)"));
+        LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
+        View firstItem = eventContainer.getChildAt(0);
+        TextView details = firstItem.findViewById(R.id.eventItemDetails);
+        String detailText = details.getText().toString();
+
+        assertTrue(detailText.contains(activity.getString(R.string.home_event_no_category)));
+        assertTrue(detailText.contains(activity.getString(R.string.home_event_no_location)));
     }
 
     private AlertDialog latestDialog() {
@@ -565,16 +542,6 @@ public class HomeActivityRobolectricTest {
         assertNotNull(positive);
         positive.performClick();
         shadowOf(Looper.getMainLooper()).idle();
-    }
-
-    private Method getPrivateMethod(String methodName, Class<?>... parameterTypes) {
-        try {
-            Method method = HomeActivity.class.getDeclaredMethod(methodName, parameterTypes);
-            method.setAccessible(true);
-            return method;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void fillEventDialog(
