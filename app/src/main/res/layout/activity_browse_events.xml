@@ -48,7 +48,7 @@
             android:textColor="?attr/colorOnPrimary" />
     </LinearLayout>
 
-    <!-- Filter panel -->
+    <!-- Filter + Sort panel -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -56,6 +56,36 @@
         android:padding="12dp"
         android:background="?attr/colorSurfaceVariant">
 
+        <!-- Sort row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/browse_sort_label"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginEnd="8dp" />
+
+            <Spinner
+                android:id="@+id/browseSortSpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOutline"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Filter label -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -74,6 +74,12 @@
 
     <!-- Browse Events screen -->
     <string name="browse_title">Browse Events</string>
+    <string name="browse_sort_label">Sort:</string>
+    <string name="browse_sort_date_asc">Date (soonest first)</string>
+    <string name="browse_sort_date_desc">Date (latest first)</string>
+    <string name="browse_sort_name_asc">Name (A → Z)</string>
+    <string name="browse_sort_name_desc">Name (Z → A)</string>
+    <string name="browse_event_past_badge">Past</string>
     <string name="browse_filters_label">Filters</string>
     <string name="browse_filter_date_from_hint">From date…</string>
     <string name="browse_filter_date_to_hint">To date…</string>
