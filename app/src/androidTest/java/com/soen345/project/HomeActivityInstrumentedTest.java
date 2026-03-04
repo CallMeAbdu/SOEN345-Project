@@ -7,7 +7,9 @@ import android.widget.TextView;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.espresso.matcher.ViewMatchers.Visibility;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 
 import com.soen345.project.auth.AuthCallback;
 import com.soen345.project.auth.AuthRepository;
@@ -33,9 +35,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.espresso.matcher.ViewMatchers.hasChildCount;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.replaceText;
+import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -65,7 +71,7 @@ public class HomeActivityInstrumentedTest {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(
                 HomeActivity.newIntent(
-                        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
                         "admin@example.com",
                         UserRole.ADMIN
                 )
@@ -111,7 +117,7 @@ public class HomeActivityInstrumentedTest {
 
         try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(
                 HomeActivity.newIntent(
-                        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
                         "admin@example.com",
                         UserRole.ADMIN
                 )
@@ -151,7 +157,7 @@ public class HomeActivityInstrumentedTest {
         authRepository.setSignedIn("customer@example.com", UserRole.CUSTOMER);
         try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
                 HomeActivity.newIntent(
-                        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
                         "customer@example.com",
                         UserRole.CUSTOMER
                 )
@@ -249,4 +255,330 @@ public class HomeActivityInstrumentedTest {
             callback.onSuccess();
         }
     }
+
+    // ── Status filter spinner ─────────────────────────────────────────────────
+
+    @Test
+    public void statusFilter_cancelled_showsOnlyCancelledEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Active Event","C","L",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Cancelled Event","C","L",future,EventStatus.CANCELLED,100,0));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity -> {
+                // Set selection and immediately read result on the same main-thread pass
+                android.widget.Spinner spinner =
+                        (android.widget.Spinner) activity.findViewById(R.id.homeStatusFilterSpinner);
+                spinner.setSelection(2); // STATUS_CANCELLED
+                // Manually trigger the same filter logic the spinner listener would call
+                spinner.getOnItemSelectedListener().onItemSelected(
+                        spinner, null, 2, 0L);
+                android.widget.LinearLayout container =
+                        (android.widget.LinearLayout) activity.findViewById(R.id.homeEventsContainer);
+                assertEquals(1, container.getChildCount());
+            });
+        }
+    }
+
+    @Test
+    public void statusFilter_active_showsOnlyFutureActiveEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        long past   = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Future Active","C","L",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Past Event","C","L",past,EventStatus.ACTIVE,100,50));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity -> {
+                // Set selection and immediately read result on the same main-thread pass
+                android.widget.Spinner spinner =
+                        (android.widget.Spinner) activity.findViewById(R.id.homeStatusFilterSpinner);
+                spinner.setSelection(1); // STATUS_ACTIVE
+                // Manually trigger the same filter logic the spinner listener would call
+                spinner.getOnItemSelectedListener().onItemSelected(
+                        spinner, null, 1, 0L);
+                android.widget.LinearLayout container =
+                        (android.widget.LinearLayout) activity.findViewById(R.id.homeEventsContainer);
+                assertEquals(1, container.getChildCount());
+            });
+        }
+    }
+
+    // ── Category / location filters ───────────────────────────────────────────
+
+    @Test
+    public void categoryFilter_reducesVisibleEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Jazz Night","Music","Hall A",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Tech Talk","Tech","Hall B",future,EventStatus.ACTIVE,100,50));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            onView(withId(R.id.homeFilterToggleChip)).perform(click());
+            onView(withId(R.id.homeCategoryFilterInput)).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.homeEventsContainer)).check(matches(hasChildCount(1)));
+        }
+    }
+
+    @Test
+    public void locationFilter_reducesVisibleEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Event A","C","Montreal",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Event B","C","Toronto",future,EventStatus.ACTIVE,100,50));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            onView(withId(R.id.homeFilterToggleChip)).perform(click());
+            onView(withId(R.id.homeLocationFilterInput)).perform(replaceText("Toronto"), closeSoftKeyboard());
+            onView(withId(R.id.homeEventsContainer)).check(matches(hasChildCount(1)));
+        }
+    }
+
+    // ── Clear filters ─────────────────────────────────────────────────────────
+
+    @Test
+    public void clearFilters_restoresAllEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Jazz Night","Music","Hall A",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Tech Talk","Tech","Hall B",future,EventStatus.ACTIVE,100,50));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            onView(withId(R.id.homeFilterToggleChip)).perform(click());
+            onView(withId(R.id.homeCategoryFilterInput)).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.homeEventsContainer)).check(matches(hasChildCount(1)));
+            onView(withId(R.id.homeClearFiltersButton)).perform(click());
+            onView(withId(R.id.homeEventsContainer)).check(matches(hasChildCount(2)));
+        }
+    }
+
+    // ── Filter panel toggle ───────────────────────────────────────────────────
+
+    @Test
+    public void filterToggleChip_expandsFilterPanel() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            onView(withId(R.id.homeFilterPanel))
+                    .check(matches(withEffectiveVisibility(Visibility.GONE)));
+            onView(withId(R.id.homeFilterToggleChip)).perform(click());
+            onView(withId(R.id.homeFilterPanel)).check(matches(isDisplayed()));
+        }
+    }
+
+    // ── Empty state ───────────────────────────────────────────────────────────
+
+    @Test
+    public void emptyList_showsEmptyText() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            onView(withId(R.id.homeEventsEmptyText)).check(matches(isDisplayed()));
+        }
+    }
+
+
+    // ── Status filter: Past and Sold Out ──────────────────────────────────────
+
+    @Test
+    public void statusFilter_past_showsOnlyPastEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        long past   = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Future Event","C","L",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Past Event",  "C","L",past,  EventStatus.ACTIVE,100,50));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            // Select by position on the activity thread — avoids animation flakiness
+            scenario.onActivity(activity -> {
+                // Set selection and immediately read result on the same main-thread pass
+                android.widget.Spinner spinner =
+                        (android.widget.Spinner) activity.findViewById(R.id.homeStatusFilterSpinner);
+                spinner.setSelection(3); // STATUS_PAST
+                // Manually trigger the same filter logic the spinner listener would call
+                spinner.getOnItemSelectedListener().onItemSelected(
+                        spinner, null, 3, 0L);
+                android.widget.LinearLayout container =
+                        (android.widget.LinearLayout) activity.findViewById(R.id.homeEventsContainer);
+                assertEquals(1, container.getChildCount());
+            });
+        }
+    }
+
+    @Test
+    public void statusFilter_soldOut_showsOnlySoldOutEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1","e1","Normal Event",  "C","L",future,EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Sold Out Event","C","L",future,EventStatus.ACTIVE,100,0));
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity -> {
+                // Set selection and immediately read result on the same main-thread pass
+                android.widget.Spinner spinner =
+                        (android.widget.Spinner) activity.findViewById(R.id.homeStatusFilterSpinner);
+                spinner.setSelection(4); // STATUS_COMPLETE
+                // Manually trigger the same filter logic the spinner listener would call
+                spinner.getOnItemSelectedListener().onItemSelected(
+                        spinner, null, 4, 0L);
+                android.widget.LinearLayout container =
+                        (android.widget.LinearLayout) activity.findViewById(R.id.homeEventsContainer);
+                assertEquals(1, container.getChildCount());
+            });
+        }
+    }
+
+    // ── Dialog validation ─────────────────────────────────────────────────────
+
+    @Test
+    public void addEventDialog_emptyTitle_showsTitleError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText(""), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> {
+                        android.widget.EditText et = (android.widget.EditText) view;
+                        assertNotNull(et.getError());
+                    });
+        }
+    }
+
+    @Test
+    public void addEventDialog_emptyCategory_showsCategoryError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Concert"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventTimeInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("2026-05-15 20:00"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText(""), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Hall"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("100"), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+        }
+    }
+
+    @Test
+    public void addEventDialog_emptyLocation_showsLocationError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Concert"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventTimeInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("2026-05-15 20:00"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText(""), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("100"), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+        }
+    }
+
+    @Test
+    public void addEventDialog_emptyCapacity_showsCapacityError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Concert"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventTimeInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("2026-05-15 20:00"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Hall"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText(""), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+        }
+    }
+
+    @Test
+    public void addEventDialog_remainingExceedsTotal_showsRemainingError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Concert"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventTimeInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("2026-05-15 20:00"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Hall"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("50"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityRemainingInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("100"), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventCapacityRemainingInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+        }
+    }
+
+    @Test
+    public void addEventDialog_negativeCapacity_showsCapacityError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
+                HomeActivity.newIntent(
+                        InstrumentationRegistry.getInstrumentation().getTargetContext(),
+                        "admin@example.com", UserRole.ADMIN))) {
+            scenario.onActivity(activity ->
+                    activity.findViewById(R.id.homeAddEventButton).performClick());
+            onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Concert"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventTimeInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("2026-05-15 20:00"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Music"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("Hall"), closeSoftKeyboard());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(replaceText("-5"), closeSoftKeyboard());
+            onView(withId(android.R.id.button1))
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .perform(androidx.test.espresso.action.ViewActions.click());
+            onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+        }
+    }
+
 }

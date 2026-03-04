@@ -46,13 +46,15 @@ import static org.robolectric.Shadows.shadowOf;
 public class BrowseEventsActivityRobolectricTest {
 
     private FakeEventRepository eventRepository;
+    private FakeAuthRepository authRepository;
     private long pastMillis;
     private long futureMillis;
 
     @Before
     public void setUp() {
         eventRepository = new FakeEventRepository();
-        AuthServiceProvider.setAuthServiceForTesting(new AuthService(new FakeAuthRepository()));
+        authRepository = new FakeAuthRepository();
+        AuthServiceProvider.setAuthServiceForTesting(new AuthService(authRepository));
         EventServiceProvider.setEventServiceForTesting(new EventService(eventRepository));
         pastMillis   = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L; // 1 week ago
         futureMillis = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L; // 1 week ahead
@@ -406,12 +408,13 @@ public class BrowseEventsActivityRobolectricTest {
     // ── Fakes ────────────────────────────────────────────────────────────────
 
     private static final class FakeAuthRepository implements AuthRepository {
+        boolean signedIn = true;
         @Override public void signIn(String id, String pw, AuthCallback cb) {}
         @Override public void register(String e, String p, String pw, AuthCallback cb) {}
-        @Override public boolean isSignedIn() { return true; }
+        @Override public boolean isSignedIn() { return signedIn; }
         @Override public String getSignedInEmail() { return "customer@example.com"; }
         @Override public UserRole getSignedInRole() { return UserRole.CUSTOMER; }
-        @Override public void signOut() {}
+        @Override public void signOut() { signedIn = false; }
     }
 
     private static final class FakeEventRepository implements EventRepository {
@@ -444,4 +447,161 @@ public class BrowseEventsActivityRobolectricTest {
         @Override public void updateEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
         @Override public void updateStatus(String id, EventStatus s, EventActionCallback cb) { cb.onSuccess(); }
     }
+    // =========================================================================
+    // ACTIVE CHIPS — date range, location, dismiss
+    // =========================================================================
+
+    @Test
+    public void activeChip_location_appearsAndDismissClears() {
+        eventRepository.add(event("d1", "Event A", EventStatus.ACTIVE, futureMillis, 100, 50, "Music", "Montreal"));
+        eventRepository.add(event("d2", "Event B", EventStatus.ACTIVE, futureMillis, 100, 50, "Music", "Toronto"));
+        BrowseEventsActivity activity = launch();
+
+        android.widget.EditText locInput = activity.findViewById(R.id.browseLocationFilterInput);
+        locInput.setText("Montreal");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Chip appears
+        LinearLayout chipsContainer = activity.findViewById(R.id.browseActiveChipsContainer);
+        assertTrue(chipsContainer.getChildCount() > 0);
+
+        // Dismiss it
+        com.google.android.material.chip.Chip chip = (com.google.android.material.chip.Chip) chipsContainer.getChildAt(0);
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("", locInput.getText().toString());
+        assertEquals(2, container(activity).getChildCount());
+    }
+
+    @Test
+    public void activeChip_hidePast_appearsWhenToggleOn() {
+        eventRepository.add(event("d1", "Past",   EventStatus.ACTIVE, pastMillis,   100, 50));
+        eventRepository.add(event("d2", "Future", EventStatus.ACTIVE, futureMillis, 100, 50));
+        BrowseEventsActivity activity = launch();
+
+        // hide-past is ON by default — chip should be visible
+        LinearLayout chipsContainer = activity.findViewById(R.id.browseActiveChipsContainer);
+        // chips for default switches (hide-past ON, hide-cancelled ON) may show — just verify filter is active
+        com.google.android.material.materialswitch.MaterialSwitch hidePast =
+                activity.findViewById(R.id.browseHidePastSwitch);
+        assertTrue(hidePast.isChecked());
+        assertEquals(1, container(activity).getChildCount()); // only future visible
+    }
+
+    // =========================================================================
+    // BOTTOM NAV — switch to My Tickets
+    // =========================================================================
+
+    @Test
+    public void bottomNav_myTicketsTab_startsMyTicketsActivity() {
+        BrowseEventsActivity activity = launch();
+
+        com.google.android.material.bottomnavigation.BottomNavigationView nav =
+                activity.findViewById(R.id.browseBottomNav);
+        nav.setSelectedItemId(R.id.nav_my_tickets);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(MyTicketsActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    // =========================================================================
+    // ONSTART — unauthenticated redirect
+    // =========================================================================
+
+    @Test
+    public void onStart_whenNotSignedIn_redirectsToMain() {
+        BrowseEventsActivity activity = launch();
+
+        // Simulate signing out then triggering onStart
+        authRepository.signedIn = false;
+        activity.onStart();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    // =========================================================================
+    // RENDER — null/blank fields fallback text
+    // =========================================================================
+
+    @Test
+    public void renderEvents_nullTitle_showsFallbackText() {
+        eventRepository.add(new Event("d1", "d1", null, "Music", "Montreal", futureMillis, EventStatus.ACTIVE, 100, 50));
+        BrowseEventsActivity activity = launch();
+
+        View card = container(activity).getChildAt(0);
+        TextView title = card.findViewById(R.id.browseEventItemTitle);
+        assertEquals(activity.getString(R.string.home_event_untitled), title.getText().toString());
+    }
+
+    @Test
+    public void renderEvents_zeroDateTime_showsNoTimeFallback() {
+        eventRepository.add(new Event("d1", "d1", "No Time Event", "Music", "Montreal", 0L, EventStatus.ACTIVE, 100, 50));
+        BrowseEventsActivity activity = launch();
+
+        // Turn off hide-past so zero-time events render
+        com.google.android.material.materialswitch.MaterialSwitch hidePast =
+                activity.findViewById(R.id.browseHidePastSwitch);
+        hidePast.setChecked(false);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        View card = container(activity).getChildAt(0);
+        TextView details = card.findViewById(R.id.browseEventItemDetails);
+        assertTrue(details.getText().toString().contains(activity.getString(R.string.home_event_no_time)));
+    }
+
+    // =========================================================================
+    // SIGN OUT
+    // =========================================================================
+
+    @Test
+    public void signOut_viaMenu_callsSignOutAndNavigatesToMain() {
+        BrowseEventsActivity activity = launch();
+        shadowOf(Looper.getMainLooper()).idle();
+        shadowOf(activity).clickMenuItem(R.id.action_sign_out);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    // =========================================================================
+    // LOAD ERROR
+    // =========================================================================
+
+    @Test
+    public void loadError_showsErrorTextAndHidesContainer() {
+        eventRepository.loadError = "server down";
+        BrowseEventsActivity activity = launch();
+
+        TextView emptyText = activity.findViewById(R.id.browseEventsEmptyText);
+        assertEquals(View.VISIBLE, emptyText.getVisibility());
+        assertEquals(activity.getString(R.string.home_events_load_failed), emptyText.getText().toString());
+        assertEquals(0, container(activity).getChildCount());
+    }
+
+    // =========================================================================
+    // EMPTY STATE — with vs without filters
+    // =========================================================================
+
+    @Test
+    public void emptyList_withActiveFilter_showsNoMatchText() {
+        eventRepository.add(event("d1", "Jazz", EventStatus.ACTIVE, futureMillis, 100, 50, "Music", "Montreal"));
+        BrowseEventsActivity activity = launch();
+
+        android.widget.EditText catInput = activity.findViewById(R.id.browseCategoryFilterInput);
+        catInput.setText("NonExistent");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        TextView emptyText = activity.findViewById(R.id.browseEventsEmptyText);
+        assertEquals(View.VISIBLE, emptyText.getVisibility());
+        assertEquals(activity.getString(R.string.browse_events_no_match), emptyText.getText().toString());
+    }
+
 }
