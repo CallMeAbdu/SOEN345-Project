@@ -1,8 +1,6 @@
 package com.soen345.project;
 
-import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -20,6 +18,7 @@ import com.soen345.project.auth.UserRole;
 import com.soen345.project.event.Event;
 import com.soen345.project.event.EventActionCallback;
 import com.soen345.project.event.EventListCallback;
+import com.soen345.project.event.EventListenerHandle;
 import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.EventService;
 import com.soen345.project.event.EventServiceProvider;
@@ -39,6 +38,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
@@ -61,7 +61,7 @@ public class HomeActivityInstrumentedTest {
     }
 
     @Test
-    public void signOutButton_isTopLeftAndWrapContent() {
+    public void toolbar_showsTitleAndEmailSubtitle() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(
                 HomeActivity.newIntent(
@@ -70,12 +70,15 @@ public class HomeActivityInstrumentedTest {
                         UserRole.ADMIN
                 )
         )) {
-            onView(withId(R.id.homeSignOutButton)).check(matches(isDisplayed()));
+            onView(withId(R.id.homeToolbar)).check(matches(isDisplayed()));
             ignored.onActivity(activity -> {
-                Button signOut = activity.findViewById(R.id.homeSignOutButton);
-                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) signOut.getLayoutParams();
-                assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, params.width);
-                assertTrue((params.gravity & Gravity.START) == Gravity.START);
+                com.google.android.material.appbar.MaterialToolbar toolbar =
+                        activity.findViewById(R.id.homeToolbar);
+                assertNotNull(toolbar);
+                assertEquals(activity.getString(R.string.home_admin_title),
+                        toolbar.getTitle().toString());
+                assertNotNull(toolbar.getSubtitle());
+                assertTrue(toolbar.getSubtitle().toString().contains("admin@example.com"));
             });
         }
     }
@@ -113,40 +116,52 @@ public class HomeActivityInstrumentedTest {
                         UserRole.ADMIN
                 )
         )) {
-            onView(withId(R.id.homeAdminSection)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+            onView(withId(R.id.homeToolbar)).check(matches(isDisplayed()));
             ignored.onActivity(activity -> {
-                LinearLayout adminSection = activity.findViewById(R.id.homeAdminSection);
-                Button addEvent = activity.findViewById(R.id.homeAddEventButton);
+                // homeAdminSection is gone — admin content is always visible in HomeActivity
+                com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton addEvent =
+                        activity.findViewById(R.id.homeAddEventButton);
                 LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
 
-                assertEquals(View.VISIBLE, adminSection.getVisibility());
                 assertEquals(View.VISIBLE, addEvent.getVisibility());
                 assertEquals(2, container.getChildCount());
 
-                View firstItem = container.getChildAt(0);
-                View secondItem = container.getChildAt(1);
-                TextView firstTitle = firstItem.findViewById(R.id.eventItemTitle);
-                Button firstStatusButton = firstItem.findViewById(R.id.eventItemStatusButton);
-                Button secondStatusButton = secondItem.findViewById(R.id.eventItemStatusButton);
-
-                assertEquals("Jazz Night", firstTitle.getText().toString());
-                assertEquals(activity.getString(R.string.home_cancel_event_action), firstStatusButton.getText().toString());
-                assertEquals(activity.getString(R.string.home_activate_event_action), secondStatusButton.getText().toString());
+                // Find items by title regardless of sort order
+                android.widget.Button jazzStatusButton = null;
+                android.widget.Button oldStatusButton = null;
+                for (int i = 0; i < container.getChildCount(); i++) {
+                    View item = container.getChildAt(i);
+                    TextView t = item.findViewById(R.id.eventItemTitle);
+                    if ("Jazz Night".equals(t.getText().toString())) {
+                        jazzStatusButton = item.findViewById(R.id.eventItemStatusButton);
+                    } else if ("Old Event".equals(t.getText().toString())) {
+                        oldStatusButton = item.findViewById(R.id.eventItemStatusButton);
+                    }
+                }
+                assertNotNull(jazzStatusButton);
+                assertNotNull(oldStatusButton);
+                assertEquals(activity.getString(R.string.home_cancel_event_action), jazzStatusButton.getText().toString());
+                assertEquals(activity.getString(R.string.home_activate_event_action), oldStatusButton.getText().toString());
             });
         }
     }
 
     @Test
-    public void customerHome_hidesAdminSection() {
+    public void customerHome_redirectsToBrowseEvents() {
         authRepository.setSignedIn("customer@example.com", UserRole.CUSTOMER);
-        try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(
+        try (ActivityScenario<HomeActivity> scenario = ActivityScenario.launch(
                 HomeActivity.newIntent(
                         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext(),
                         "customer@example.com",
                         UserRole.CUSTOMER
                 )
         )) {
-            onView(withId(R.id.homeAdminSection)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+            // HomeActivity finishes itself and starts BrowseEventsActivity for customers
+            // Verify the activity reached a finished/destroyed state
+            assertTrue(
+                    scenario.getState() == androidx.lifecycle.Lifecycle.State.DESTROYED ||
+                            scenario.getState() == androidx.lifecycle.Lifecycle.State.CREATED
+            );
         }
     }
 
@@ -208,6 +223,16 @@ public class HomeActivityInstrumentedTest {
             callback.onSuccess(new ArrayList<>(events));
         }
 
+
+        @Override
+        public EventListenerHandle listenToEvents(EventListCallback callback) {
+            if (callback != null) {
+                java.util.List<Event> sorted = new java.util.ArrayList<>(events);
+                sorted.sort((a, b) -> Long.compare(b.getDateTimeMillis(), a.getDateTimeMillis()));
+                callback.onSuccess(sorted);
+            }
+            return new EventListenerHandle() { @Override public void remove() {} };
+        }
         @Override
         public void createEvent(Event event, EventActionCallback callback) {
             events.add(event);

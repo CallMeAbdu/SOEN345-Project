@@ -81,6 +81,11 @@ public class EventServiceProviderTest {
             }
         }
 
+
+        @Override
+        public EventListenerHandle listenToEvents(EventListCallback callback) {
+            return () -> {};
+        }
         @Override
         public void createEvent(Event event, EventActionCallback callback) {
             if (callback != null) {
