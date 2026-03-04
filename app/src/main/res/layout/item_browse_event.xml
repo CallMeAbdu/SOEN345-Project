@@ -31,6 +31,19 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/browseEventCancelledBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/home_status_cancelled"
+                android:textSize="11sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_status_cancelled"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/browseEventPastBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

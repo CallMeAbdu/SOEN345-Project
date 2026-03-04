@@ -82,6 +82,7 @@ public class HomeActivity extends AppCompatActivity {
     private long filterDateToMillis = 0L;
 
     private List<Event> allEvents = new ArrayList<>();
+    private com.soen345.project.event.EventListenerHandle eventsListenerHandle;
 
     private AuthService authService;
     private EventService eventService;
@@ -133,6 +134,15 @@ public class HomeActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (eventsListenerHandle != null) {
+            eventsListenerHandle.remove();
+            eventsListenerHandle = null;
+        }
     }
 
     @Override
@@ -338,7 +348,8 @@ public class HomeActivity extends AppCompatActivity {
         homeEventsEmptyText.setVisibility(View.VISIBLE);
         homeEventsContainer.removeAllViews();
 
-        eventService.loadEvents(new EventListCallback() {
+        if (eventsListenerHandle != null) eventsListenerHandle.remove();
+        eventsListenerHandle = eventService.listenToEvents(new EventListCallback() {
             @Override public void onSuccess(List<Event> events) {
                 allEvents = events != null ? events : new ArrayList<>();
                 applyFiltersAndRender();

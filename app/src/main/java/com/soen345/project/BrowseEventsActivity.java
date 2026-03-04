@@ -63,8 +63,10 @@ public class BrowseEventsActivity extends AppCompatActivity {
     private long filterDateToMillis = 0L;
     private String filterCategory = "";
     private String filterLocation = "";
-    private boolean hidePastEvents = true;   // default ON
+    private boolean hidePastEvents = true;    // default ON
     private boolean hideSoldOutEvents = false; // default OFF
+    private boolean hideCancelledEvents = true; // default ON
+    private com.soen345.project.event.EventListenerHandle eventsListenerHandle;
 
     // All loaded events (non-cancelled)
     private List<Event> allEvents = new ArrayList<>();
@@ -81,6 +83,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
     private Spinner browseSortSpinner;
     private MaterialSwitch browseHidePastSwitch;
     private MaterialSwitch browseHideSoldOutSwitch;
+    private MaterialSwitch browseHideCancelledSwitch;
     private EditText browseCategoryFilterInput;
     private EditText browseLocationFilterInput;
     private android.widget.Button browseDateFromButton;
@@ -111,6 +114,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
         setupSortSpinner();
         setupHidePastSwitch();
         setupHideSoldOutSwitch();
+        setupHideCancelledSwitch();
         setupFilterListeners();
         setupBottomNav();
 
@@ -119,6 +123,15 @@ public class BrowseEventsActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (eventsListenerHandle != null) {
+            eventsListenerHandle.remove();
+            eventsListenerHandle = null;
+        }
     }
 
     @Override
@@ -143,6 +156,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
         browseSortSpinner = findViewById(R.id.browseSortSpinner);
         browseHidePastSwitch = findViewById(R.id.browseHidePastSwitch);
         browseHideSoldOutSwitch = findViewById(R.id.browseHideSoldOutSwitch);
+        browseHideCancelledSwitch = findViewById(R.id.browseHideCancelledSwitch);
         browseCategoryFilterInput = findViewById(R.id.browseCategoryFilterInput);
         browseLocationFilterInput = findViewById(R.id.browseLocationFilterInput);
         browseDateFromButton = findViewById(R.id.browseDateFromButton);
@@ -229,6 +243,14 @@ public class BrowseEventsActivity extends AppCompatActivity {
         });
     }
 
+    private void setupHideCancelledSwitch() {
+        browseHideCancelledSwitch.setChecked(hideCancelledEvents);
+        browseHideCancelledSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            hideCancelledEvents = isChecked;
+            applyFiltersAndRender();
+        });
+    }
+
     private void setupFilterListeners() {
         // Toggle filter panel open/closed
         browseFilterToggleChip.setOnClickListener(v -> {
@@ -284,10 +306,11 @@ public class BrowseEventsActivity extends AppCompatActivity {
         browseEventsEmptyText.setVisibility(View.VISIBLE);
         browseEventsContainer.removeAllViews();
 
-        eventService.loadEvents(new EventListCallback() {
+        if (eventsListenerHandle != null) eventsListenerHandle.remove();
+        eventsListenerHandle = eventService.listenToEvents(new EventListCallback() {
             @Override
             public void onSuccess(List<Event> events) {
-                allEvents = filterCancelledEvents(events);
+                allEvents = events != null ? events : new ArrayList<>();
                 applyFiltersAndRender();
             }
 
@@ -306,15 +329,6 @@ public class BrowseEventsActivity extends AppCompatActivity {
     // TASK-2.1.3 - Exclude cancelled events
     // -------------------------------------------------------------------------
 
-    private List<Event> filterCancelledEvents(List<Event> events) {
-        List<Event> result = new ArrayList<>();
-        if (events == null) return result;
-        for (Event e : events) {
-            if (e.getStatus() != EventStatus.CANCELLED) result.add(e);
-        }
-        return result;
-    }
-
     // -------------------------------------------------------------------------
     // Filters + sort
     // -------------------------------------------------------------------------
@@ -322,6 +336,13 @@ public class BrowseEventsActivity extends AppCompatActivity {
     private void applyFiltersAndRender() {
         List<Event> filtered = new ArrayList<>(allEvents);
         long nowMillis = System.currentTimeMillis();
+
+        // Hide cancelled events filter (default ON)
+        if (hideCancelledEvents) {
+            List<Event> notCancelled = new ArrayList<>();
+            for (Event e : filtered) if (!e.isCancelled()) notCancelled.add(e);
+            filtered = notCancelled;
+        }
 
         // Hide past events filter (default ON)
         if (hidePastEvents) {
@@ -440,6 +461,8 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 getString(R.string.browse_chip_showing_past), null);
         addSummaryChipIfNeeded(hideSoldOutEvents,
                 getString(R.string.browse_chip_available_only), null);
+        addSummaryChipIfNeeded(!hideCancelledEvents,
+                getString(R.string.browse_chip_showing_cancelled), null);
     }
 
     private void addSummaryChipIfNeeded(boolean condition, String label, Runnable onClose) {
@@ -500,6 +523,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
             TextView detailsText = itemView.findViewById(R.id.browseEventItemDetails);
             TextView pastBadge = itemView.findViewById(R.id.browseEventPastBadge);
             TextView soldOutBadge = itemView.findViewById(R.id.browseEventSoldOutBadge);
+            TextView cancelledBadge = itemView.findViewById(R.id.browseEventCancelledBadge);
 
             String title = isNullOrBlank(event.getTitle())
                     ? getString(R.string.home_event_untitled) : event.getTitle();
@@ -510,8 +534,9 @@ public class BrowseEventsActivity extends AppCompatActivity {
             String location = isNullOrBlank(event.getLocation())
                     ? getString(R.string.home_event_no_location) : event.getLocation();
 
-            boolean isPast = event.getDateTimeMillis() > 0L && event.getDateTimeMillis() < nowMillis;
-            boolean isSoldOut = event.getCapacityRemaining() == 0;
+            boolean isCancelled = event.isCancelled();
+            boolean isPast = !isCancelled && event.getDateTimeMillis() > 0L && event.getDateTimeMillis() < nowMillis;
+            boolean isSoldOut = !isCancelled && event.getCapacityRemaining() == 0;
 
             // Capacity: "Tickets remaining: x / x"
             String capacity = getString(R.string.browse_event_capacity_remaining,
@@ -525,11 +550,12 @@ public class BrowseEventsActivity extends AppCompatActivity {
                             + capacity
             );
 
+            cancelledBadge.setVisibility(isCancelled ? View.VISIBLE : View.GONE);
             pastBadge.setVisibility(isPast ? View.VISIBLE : View.GONE);
             soldOutBadge.setVisibility(isSoldOut ? View.VISIBLE : View.GONE);
 
-            // Dim past events, grey out sold-out events
-            if (isPast) {
+            // Alpha: cancelled > past > sold out > normal
+            if (isCancelled || isPast) {
                 itemView.setAlpha(0.5f);
             } else if (isSoldOut) {
                 itemView.setAlpha(0.65f);
@@ -537,9 +563,9 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 itemView.setAlpha(1.0f);
             }
 
-            // Reserve button — hidden for past/sold out, no-op placeholder otherwise
+            // Reserve button — hidden for cancelled/past/sold out
             android.widget.Button reserveButton = itemView.findViewById(R.id.browseEventReserveButton);
-            if (isPast || isSoldOut) {
+            if (isCancelled || isPast || isSoldOut) {
                 reserveButton.setVisibility(View.GONE);
             } else {
                 reserveButton.setVisibility(View.VISIBLE);

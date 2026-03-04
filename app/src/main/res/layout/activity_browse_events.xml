@@ -185,12 +185,13 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- Upcoming only + Available only + Clear -->
+            <!-- Row 4a: Upcoming only + Available only -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -203,7 +204,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginEnd="20dp"
                     android:checked="true" />
 
                 <TextView
@@ -218,6 +219,27 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:checked="false" />
+            </LinearLayout>
+
+            <!-- Row 4b: Hide cancelled + spacer + Clear filters -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/browse_filter_hide_cancelled"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/browseHideCancelledSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:checked="true" />
 
                 <View
                     android:layout_width="0dp"
