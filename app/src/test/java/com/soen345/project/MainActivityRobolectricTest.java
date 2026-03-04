@@ -91,6 +91,7 @@ public class MainActivityRobolectricTest {
         Intent startedIntent = shadow.getNextStartedActivity();
         assertNotNull(startedIntent);
         // Customers are routed to BrowseEventsActivity; admins go to HomeActivity
+        assertNotNull(startedIntent.getComponent());
         String className = startedIntent.getComponent().getClassName();
         assertTrue(
                 className.equals(HomeActivity.class.getName()) ||
@@ -134,6 +135,7 @@ public class MainActivityRobolectricTest {
         Intent startedIntent = shadowOf(activity).getNextStartedActivity();
         assertNotNull(startedIntent);
         // Customers are routed to BrowseEventsActivity; admins go to HomeActivity
+        assertNotNull(startedIntent.getComponent());
         String className = startedIntent.getComponent().getClassName();
         assertTrue(
                 className.equals(HomeActivity.class.getName()) ||

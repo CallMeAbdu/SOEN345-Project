@@ -12,7 +12,6 @@ import com.soen345.project.auth.AuthCallback;
 import com.soen345.project.auth.AuthRepository;
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
-import com.soen345.project.auth.AuthSession;
 import com.soen345.project.auth.UserRole;
 import com.soen345.project.event.Event;
 import com.soen345.project.event.EventActionCallback;

@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.espresso.matcher.ViewMatchers.hasChildCount;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.replaceText;
@@ -465,7 +464,7 @@ public class HomeActivityInstrumentedTest {
             onView(withId(R.id.dialogEventTitleInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .check((view, e) -> {
                         android.widget.EditText et = (android.widget.EditText) view;
-                        assertNotNull(et.getError());
+                        CharSequence _err = et.getError(); assertNotNull("Expected validation error", _err);
                     });
         }
     }
@@ -488,7 +487,7 @@ public class HomeActivityInstrumentedTest {
                     .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .perform(androidx.test.espresso.action.ViewActions.click());
             onView(withId(R.id.dialogEventCategoryInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
-                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+                    .check((view, e) -> { CharSequence _err = ((android.widget.EditText) view).getError(); assertNotNull("Expected validation error", _err); });
         }
     }
 
@@ -510,7 +509,7 @@ public class HomeActivityInstrumentedTest {
                     .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .perform(androidx.test.espresso.action.ViewActions.click());
             onView(withId(R.id.dialogEventLocationInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
-                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+                    .check((view, e) -> { CharSequence _err = ((android.widget.EditText) view).getError(); assertNotNull("Expected validation error", _err); });
         }
     }
 
@@ -532,7 +531,7 @@ public class HomeActivityInstrumentedTest {
                     .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .perform(androidx.test.espresso.action.ViewActions.click());
             onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
-                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+                    .check((view, e) -> { CharSequence _err = ((android.widget.EditText) view).getError(); assertNotNull("Expected validation error", _err); });
         }
     }
 
@@ -555,7 +554,7 @@ public class HomeActivityInstrumentedTest {
                     .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .perform(androidx.test.espresso.action.ViewActions.click());
             onView(withId(R.id.dialogEventCapacityRemainingInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
-                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+                    .check((view, e) -> { CharSequence _err = ((android.widget.EditText) view).getError(); assertNotNull("Expected validation error", _err); });
         }
     }
 
@@ -577,7 +576,7 @@ public class HomeActivityInstrumentedTest {
                     .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .perform(androidx.test.espresso.action.ViewActions.click());
             onView(withId(R.id.dialogEventCapacityTotalInput)).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
-                    .check((view, e) -> assertNotNull(((android.widget.EditText) view).getError()));
+                    .check((view, e) -> { CharSequence _err = ((android.widget.EditText) view).getError(); assertNotNull("Expected validation error", _err); });
         }
     }
 

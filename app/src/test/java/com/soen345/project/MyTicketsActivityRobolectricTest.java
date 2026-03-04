@@ -96,6 +96,7 @@ public class MyTicketsActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
+        assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
 
@@ -121,6 +122,7 @@ public class MyTicketsActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
+        assertNotNull(started.getComponent());
         assertEquals(BrowseEventsActivity.class.getName(), started.getComponent().getClassName());
     }
 
@@ -136,6 +138,7 @@ public class MyTicketsActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
+        assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
 

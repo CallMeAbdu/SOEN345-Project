@@ -127,8 +127,8 @@ public class HomeActivityRobolectricTest {
         ShadowActivity shadow = shadowOf(activity);
         Intent startedIntent = shadow.getNextStartedActivity();
         assertNotNull(startedIntent);
-        assertEquals(BrowseEventsActivity.class.getName(),
-                startedIntent.getComponent().getClassName());
+        assertNotNull(startedIntent.getComponent());
+        assertEquals(BrowseEventsActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
     @Test
@@ -145,6 +145,7 @@ public class HomeActivityRobolectricTest {
         ShadowActivity shadow = shadowOf(activity);
         Intent startedIntent = shadow.getNextStartedActivity();
         assertNotNull(startedIntent);
+        assertNotNull(startedIntent.getComponent());
         assertEquals(MainActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
@@ -161,6 +162,7 @@ public class HomeActivityRobolectricTest {
         assertTrue(authRepository.signOutCalls > 0);
         Intent startedIntent = shadowOf(activity).getNextStartedActivity();
         assertNotNull(startedIntent);
+        assertNotNull(startedIntent.getComponent());
         assertEquals(MainActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
@@ -224,7 +226,7 @@ public class HomeActivityRobolectricTest {
 
         EditText title = dialog.findViewById(R.id.dialogEventTitleInput);
         assertNotNull(title);
-        assertNotNull(title.getError());
+        assertNotNull(title); assertNotNull(title.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -240,7 +242,7 @@ public class HomeActivityRobolectricTest {
 
         EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
         assertNotNull(timeInput);
-        assertNotNull(timeInput.getError());
+        assertNotNull(timeInput); assertNotNull(timeInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -256,7 +258,7 @@ public class HomeActivityRobolectricTest {
 
         EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
         assertNotNull(timeInput);
-        assertNotNull(timeInput.getError());
+        assertNotNull(timeInput); assertNotNull(timeInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -272,7 +274,7 @@ public class HomeActivityRobolectricTest {
 
         EditText categoryInput = dialog.findViewById(R.id.dialogEventCategoryInput);
         assertNotNull(categoryInput);
-        assertNotNull(categoryInput.getError());
+        assertNotNull(categoryInput); assertNotNull(categoryInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -288,7 +290,7 @@ public class HomeActivityRobolectricTest {
 
         EditText locationInput = dialog.findViewById(R.id.dialogEventLocationInput);
         assertNotNull(locationInput);
-        assertNotNull(locationInput.getError());
+        assertNotNull(locationInput); assertNotNull(locationInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -304,7 +306,7 @@ public class HomeActivityRobolectricTest {
 
         EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
         assertNotNull(totalInput);
-        assertNotNull(totalInput.getError());
+        assertNotNull(totalInput); assertNotNull(totalInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -320,7 +322,7 @@ public class HomeActivityRobolectricTest {
 
         EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
         assertNotNull(totalInput);
-        assertNotNull(totalInput.getError());
+        assertNotNull(totalInput); assertNotNull(totalInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -336,7 +338,7 @@ public class HomeActivityRobolectricTest {
 
         EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
         assertNotNull(remainingInput);
-        assertNotNull(remainingInput.getError());
+        assertNotNull(remainingInput); assertNotNull(remainingInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -352,7 +354,7 @@ public class HomeActivityRobolectricTest {
 
         EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
         assertNotNull(remainingInput);
-        assertNotNull(remainingInput.getError());
+        assertNotNull(remainingInput); assertNotNull(remainingInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1043,7 +1045,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText titleInput = dialog.findViewById(R.id.dialogEventTitleInput);
-        assertNotNull(titleInput.getError());
+        assertNotNull(titleInput); assertNotNull(titleInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1058,7 +1060,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText catInput = dialog.findViewById(R.id.dialogEventCategoryInput);
-        assertNotNull(catInput.getError());
+        assertNotNull(catInput); assertNotNull(catInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1073,7 +1075,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText locInput = dialog.findViewById(R.id.dialogEventLocationInput);
-        assertNotNull(locInput.getError());
+        assertNotNull(locInput); assertNotNull(locInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1088,7 +1090,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText capInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
-        assertNotNull(capInput.getError());
+        assertNotNull(capInput); assertNotNull(capInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1103,7 +1105,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText remInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
-        assertNotNull(remInput.getError());
+        assertNotNull(remInput); assertNotNull(remInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1118,7 +1120,7 @@ public class HomeActivityRobolectricTest {
         clickPositive(dialog);
 
         android.widget.EditText capInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
-        assertNotNull(capInput.getError());
+        assertNotNull(capInput); assertNotNull(capInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -1138,6 +1140,7 @@ public class HomeActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
+        assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
 
