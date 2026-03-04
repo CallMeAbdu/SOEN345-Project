@@ -10,7 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -23,6 +23,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import android.view.Menu;
+import android.view.MenuItem;
+import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.event.Event;
@@ -47,10 +52,10 @@ public class BrowseEventsActivity extends AppCompatActivity {
     public static final String EXTRA_USER_ROLE = "extra_user_role";
 
     // Sort options (index matches spinner position)
-    private static final int SORT_DATE_ASC  = 0;  // Soonest first
-    private static final int SORT_DATE_DESC = 1;  // Latest first
-    private static final int SORT_NAME_ASC  = 2;  // A → Z
-    private static final int SORT_NAME_DESC = 3;  // Z → A
+    private static final int SORT_DATE_ASC  = 0;
+    private static final int SORT_DATE_DESC = 1;
+    private static final int SORT_NAME_ASC  = 2;
+    private static final int SORT_NAME_DESC = 3;
     private int currentSortOrder = SORT_DATE_ASC;
 
     // Filter state
@@ -58,6 +63,8 @@ public class BrowseEventsActivity extends AppCompatActivity {
     private long filterDateToMillis = 0L;
     private String filterCategory = "";
     private String filterLocation = "";
+    private boolean hidePastEvents = true;   // default ON
+    private boolean hideSoldOutEvents = false; // default OFF
 
     // All loaded events (non-cancelled)
     private List<Event> allEvents = new ArrayList<>();
@@ -67,16 +74,21 @@ public class BrowseEventsActivity extends AppCompatActivity {
     private EventService eventService;
 
     // Views
-    private TextView browseUserEmailText;
-    private Button browseSignOutButton;
+    private MaterialToolbar browseToolbar;
+    private com.google.android.material.chip.Chip browseFilterToggleChip;
+    private LinearLayout browseFilterPanel;
+    private LinearLayout browseActiveChipsContainer;
     private Spinner browseSortSpinner;
+    private MaterialSwitch browseHidePastSwitch;
+    private MaterialSwitch browseHideSoldOutSwitch;
     private EditText browseCategoryFilterInput;
     private EditText browseLocationFilterInput;
-    private Button browseDateFromButton;
-    private Button browseDateToButton;
-    private Button browseClearFiltersButton;
+    private android.widget.Button browseDateFromButton;
+    private android.widget.Button browseDateToButton;
+    private android.widget.Button browseClearFiltersButton;
     private TextView browseEventsEmptyText;
     private LinearLayout browseEventsContainer;
+    private BottomNavigationView browseBottomNav;
 
     public static Intent newIntent(Context context, String userEmail, String role) {
         Intent intent = new Intent(context, BrowseEventsActivity.class);
@@ -95,9 +107,12 @@ public class BrowseEventsActivity extends AppCompatActivity {
         eventService = EventServiceProvider.getEventService();
 
         bindViews();
-        setupUserInfo();
+        setupToolbar();
         setupSortSpinner();
+        setupHidePastSwitch();
+        setupHideSoldOutSwitch();
         setupFilterListeners();
+        setupBottomNav();
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.browseRoot), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -121,9 +136,13 @@ public class BrowseEventsActivity extends AppCompatActivity {
     // -------------------------------------------------------------------------
 
     private void bindViews() {
-        browseUserEmailText = findViewById(R.id.browseUserEmailText);
-        browseSignOutButton = findViewById(R.id.browseSignOutButton);
+        browseToolbar = findViewById(R.id.browseToolbar);
+        browseFilterToggleChip = findViewById(R.id.browseFilterToggleChip);
+        browseFilterPanel = findViewById(R.id.browseFilterPanel);
+        browseActiveChipsContainer = findViewById(R.id.browseActiveChipsContainer);
         browseSortSpinner = findViewById(R.id.browseSortSpinner);
+        browseHidePastSwitch = findViewById(R.id.browseHidePastSwitch);
+        browseHideSoldOutSwitch = findViewById(R.id.browseHideSoldOutSwitch);
         browseCategoryFilterInput = findViewById(R.id.browseCategoryFilterInput);
         browseLocationFilterInput = findViewById(R.id.browseLocationFilterInput);
         browseDateFromButton = findViewById(R.id.browseDateFromButton);
@@ -131,14 +150,44 @@ public class BrowseEventsActivity extends AppCompatActivity {
         browseClearFiltersButton = findViewById(R.id.browseClearFiltersButton);
         browseEventsEmptyText = findViewById(R.id.browseEventsEmptyText);
         browseEventsContainer = findViewById(R.id.browseEventsContainer);
+        browseBottomNav = findViewById(R.id.browseBottomNav);
     }
 
-    private void setupUserInfo() {
+    private void setupToolbar() {
+        setSupportActionBar(browseToolbar);
+        // Bold title
+        browseToolbar.setTitleTextAppearance(this, R.style.BrowseToolbarTitleStyle);
+
         String email = getIntent().getStringExtra(EXTRA_USER_EMAIL);
         if (isNullOrBlank(email)) email = authService.getSignedInEmail();
         if (isNullOrBlank(email)) email = getString(R.string.auth_unknown_user);
-        browseUserEmailText.setText(getString(R.string.auth_signed_in_as, email));
-        browseSignOutButton.setOnClickListener(v -> signOut());
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setSubtitle(getString(R.string.auth_signed_in_as, email));
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_browse_events, menu);
+        MenuItem signOutItem = menu.findItem(R.id.action_sign_out);
+        if (signOutItem != null) {
+            android.util.TypedValue typedValue = new android.util.TypedValue();
+            getTheme().resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true);
+            int primaryColor = typedValue.data;
+            android.text.SpannableString s = new android.text.SpannableString(signOutItem.getTitle());
+            s.setSpan(new android.text.style.ForegroundColorSpan(primaryColor), 0, s.length(), 0);
+            signOutItem.setTitle(s);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_sign_out) {
+            signOut();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void setupSortSpinner() {
@@ -164,7 +213,29 @@ public class BrowseEventsActivity extends AppCompatActivity {
         });
     }
 
+    private void setupHidePastSwitch() {
+        browseHidePastSwitch.setChecked(hidePastEvents);
+        browseHidePastSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            hidePastEvents = isChecked;
+            applyFiltersAndRender();
+        });
+    }
+
+    private void setupHideSoldOutSwitch() {
+        browseHideSoldOutSwitch.setChecked(hideSoldOutEvents);
+        browseHideSoldOutSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            hideSoldOutEvents = isChecked;
+            applyFiltersAndRender();
+        });
+    }
+
     private void setupFilterListeners() {
+        // Toggle filter panel open/closed
+        browseFilterToggleChip.setOnClickListener(v -> {
+            boolean isVisible = browseFilterPanel.getVisibility() == View.VISIBLE;
+            browseFilterPanel.setVisibility(isVisible ? View.GONE : View.VISIBLE);
+            browseFilterToggleChip.setChecked(!isVisible);
+        });
         browseCategoryFilterInput.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
@@ -184,6 +255,24 @@ public class BrowseEventsActivity extends AppCompatActivity {
         browseDateFromButton.setOnClickListener(v -> showDatePicker(true));
         browseDateToButton.setOnClickListener(v -> showDatePicker(false));
         browseClearFiltersButton.setOnClickListener(v -> clearFilters());
+    }
+
+    private void setupBottomNav() {
+        browseBottomNav.setSelectedItemId(R.id.nav_browse_events);
+        browseBottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_browse_events) {
+                return true;
+            }
+            if (id == R.id.nav_my_tickets) {
+                String email = getIntent().getStringExtra(EXTRA_USER_EMAIL);
+                String role = getIntent().getStringExtra(EXTRA_USER_ROLE);
+                startActivity(MyTicketsActivity.newIntent(this, email, role));
+                finish();
+                return true;
+            }
+            return false;
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -221,25 +310,43 @@ public class BrowseEventsActivity extends AppCompatActivity {
         List<Event> result = new ArrayList<>();
         if (events == null) return result;
         for (Event e : events) {
-            if (e.getStatus() != EventStatus.CANCELLED) {
-                result.add(e);
-            }
+            if (e.getStatus() != EventStatus.CANCELLED) result.add(e);
         }
         return result;
     }
 
     // -------------------------------------------------------------------------
-    // Filters + sort | TASK-2.2.4 - Dynamic UI update
+    // Filters + sort
     // -------------------------------------------------------------------------
 
     private void applyFiltersAndRender() {
         List<Event> filtered = new ArrayList<>(allEvents);
+        long nowMillis = System.currentTimeMillis();
+
+        // Hide past events filter (default ON)
+        if (hidePastEvents) {
+            List<Event> upcoming = new ArrayList<>();
+            for (Event e : filtered) {
+                if (e.getDateTimeMillis() <= 0L || e.getDateTimeMillis() >= nowMillis) {
+                    upcoming.add(e);
+                }
+            }
+            filtered = upcoming;
+        }
+
+        // Hide sold out events filter
+        if (hideSoldOutEvents) {
+            List<Event> available = new ArrayList<>();
+            for (Event e : filtered) {
+                if (e.getCapacityRemaining() > 0) available.add(e);
+            }
+            filtered = available;
+        }
 
         // Date range filter
         if (filterDateFromMillis > 0L || filterDateToMillis > 0L) {
             long rangeStart = 0L;
             long rangeEnd = Long.MAX_VALUE;
-
             if (filterDateFromMillis > 0L) {
                 Calendar from = Calendar.getInstance();
                 from.setTimeInMillis(filterDateFromMillis);
@@ -258,7 +365,6 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 to.set(Calendar.MILLISECOND, 999);
                 rangeEnd = to.getTimeInMillis();
             }
-
             final long rs = rangeStart;
             final long re = rangeEnd;
             List<Event> dateFiltered = new ArrayList<>();
@@ -306,6 +412,53 @@ public class BrowseEventsActivity extends AppCompatActivity {
         }
 
         renderEvents(filtered);
+        updateActiveChips();
+    }
+
+    /** Shows small dismissible chips in the collapsed bar summarising active filters */
+    private void updateActiveChips() {
+        browseActiveChipsContainer.removeAllViews();
+        addSummaryChipIfNeeded(filterDateFromMillis > 0L || filterDateToMillis > 0L,
+                buildDateRangeLabel(), () -> {
+                    filterDateFromMillis = 0L;
+                    filterDateToMillis = 0L;
+                    browseDateFromButton.setText(R.string.browse_filter_date_from_hint);
+                    browseDateToButton.setText(R.string.browse_filter_date_to_hint);
+                    applyFiltersAndRender();
+                });
+        addSummaryChipIfNeeded(!filterCategory.isEmpty(), filterCategory, () -> {
+            filterCategory = "";
+            browseCategoryFilterInput.setText("");
+            applyFiltersAndRender();
+        });
+        addSummaryChipIfNeeded(!filterLocation.isEmpty(), filterLocation, () -> {
+            filterLocation = "";
+            browseLocationFilterInput.setText("");
+            applyFiltersAndRender();
+        });
+        addSummaryChipIfNeeded(!hidePastEvents,
+                getString(R.string.browse_chip_showing_past), null);
+        addSummaryChipIfNeeded(hideSoldOutEvents,
+                getString(R.string.browse_chip_available_only), null);
+    }
+
+    private void addSummaryChipIfNeeded(boolean condition, String label, Runnable onClose) {
+        if (!condition || label == null || label.isEmpty()) return;
+        com.google.android.material.chip.Chip chip = new com.google.android.material.chip.Chip(this);
+        chip.setText(label);
+        chip.setTextSize(11f);
+        if (onClose != null) {
+            chip.setCloseIconVisible(true);
+            chip.setOnCloseIconClickListener(v -> onClose.run());
+        }
+        browseActiveChipsContainer.addView(chip);
+    }
+
+    private String buildDateRangeLabel() {
+        SimpleDateFormat sdf = new SimpleDateFormat(DATE_FILTER_DISPLAY_PATTERN, Locale.US);
+        String from = filterDateFromMillis > 0L ? sdf.format(new Date(filterDateFromMillis)) : "…";
+        String to = filterDateToMillis > 0L ? sdf.format(new Date(filterDateToMillis)) : "…";
+        return from + " → " + to;
     }
 
     private void clearFilters() {
@@ -317,6 +470,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
         browseDateToButton.setText(R.string.browse_filter_date_to_hint);
         browseCategoryFilterInput.setText("");
         browseLocationFilterInput.setText("");
+        // Note: hidePastEvents switch is intentionally not reset by clear filters
         applyFiltersAndRender();
     }
 
@@ -345,6 +499,7 @@ public class BrowseEventsActivity extends AppCompatActivity {
             TextView titleText = itemView.findViewById(R.id.browseEventItemTitle);
             TextView detailsText = itemView.findViewById(R.id.browseEventItemDetails);
             TextView pastBadge = itemView.findViewById(R.id.browseEventPastBadge);
+            TextView soldOutBadge = itemView.findViewById(R.id.browseEventSoldOutBadge);
 
             String title = isNullOrBlank(event.getTitle())
                     ? getString(R.string.home_event_untitled) : event.getTitle();
@@ -356,21 +511,31 @@ public class BrowseEventsActivity extends AppCompatActivity {
                     ? getString(R.string.home_event_no_location) : event.getLocation();
 
             boolean isPast = event.getDateTimeMillis() > 0L && event.getDateTimeMillis() < nowMillis;
+            boolean isSoldOut = event.getCapacityRemaining() == 0;
+
+            // Capacity: "Tickets remaining: x / x"
+            String capacity = getString(R.string.browse_event_capacity_remaining,
+                    event.getCapacityRemaining(), event.getCapacityTotal());
 
             titleText.setText(title);
             detailsText.setText(
                     getString(R.string.home_event_time_label, when) + "\n"
                             + getString(R.string.home_event_category_label, category) + "\n"
                             + getString(R.string.home_event_location_label, location) + "\n"
-                            + getString(R.string.home_event_capacity_label,
-                            event.getCapacityRemaining(), event.getCapacityTotal())
+                            + capacity
             );
 
-            // Past event indicator
             pastBadge.setVisibility(isPast ? View.VISIBLE : View.GONE);
+            soldOutBadge.setVisibility(isSoldOut ? View.VISIBLE : View.GONE);
 
-            // Dim the whole card for past events
-            itemView.setAlpha(isPast ? 0.5f : 1.0f);
+            // Dim past events, grey out sold-out events
+            if (isPast) {
+                itemView.setAlpha(0.5f);
+            } else if (isSoldOut) {
+                itemView.setAlpha(0.65f);
+            } else {
+                itemView.setAlpha(1.0f);
+            }
 
             browseEventsContainer.addView(itemView);
         }
