@@ -537,6 +537,15 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 itemView.setAlpha(1.0f);
             }
 
+            // Reserve button — hidden for past/sold out, no-op placeholder otherwise
+            android.widget.Button reserveButton = itemView.findViewById(R.id.browseEventReserveButton);
+            if (isPast || isSoldOut) {
+                reserveButton.setVisibility(View.GONE);
+            } else {
+                reserveButton.setVisibility(View.VISIBLE);
+                reserveButton.setOnClickListener(null); // TODO: implement reservation
+            }
+
             browseEventsContainer.addView(itemView);
         }
     }

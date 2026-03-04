@@ -83,6 +83,7 @@
     <string name="browse_event_sold_out_badge">Sold Out</string>
     <string name="browse_filter_hide_past">Upcoming only</string>
     <string name="browse_filter_hide_sold_out">Available only</string>
+    <string name="browse_event_reserve_button">Reserve</string>
     <string name="browse_event_capacity_remaining">Tickets remaining: %1$d / %2$d</string>
     <string name="browse_filter_chip_label">Filter / Sort</string>
     <string name="browse_chip_showing_past">Showing past</string>
