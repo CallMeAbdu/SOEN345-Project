@@ -1,5 +1,8 @@
 package com.soen345.project;
 
+import org.robolectric.shadows.ShadowDialog;
+
+import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Looper;
 import android.view.View;
@@ -30,6 +33,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -489,6 +493,103 @@ public class BrowseEventsActivityRobolectricTest {
         assertEquals(1, container(activity).getChildCount()); // only future visible
     }
 
+    @Test
+    public void activeChip_dateRange_dismiss_resetsDatesAndButtons() throws Exception {
+        long day1 = futureMillis;
+        long day2 = futureMillis + 24 * 60 * 60 * 1000L;
+
+        eventRepository.add(event("d1", "Day1", EventStatus.ACTIVE, day1, 100, 50));
+        eventRepository.add(event("d2", "Day2", EventStatus.ACTIVE, day2, 100, 50));
+
+        BrowseEventsActivity activity = launch();
+
+        // Set both date filters via reflection
+        java.lang.reflect.Field fromField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateFromMillis");
+        fromField.setAccessible(true);
+        fromField.set(activity, day1);
+
+        java.lang.reflect.Field toField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateToMillis");
+        toField.setAccessible(true);
+        toField.set(activity, day2);
+
+        // Trigger filtering
+        java.lang.reflect.Method method =
+                BrowseEventsActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        method.setAccessible(true);
+        method.invoke(activity);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Chip should appear
+        LinearLayout chipsContainer =
+                activity.findViewById(R.id.browseActiveChipsContainer);
+        assertTrue(chipsContainer.getChildCount() > 0);
+
+        // Dismiss the chip
+        com.google.android.material.chip.Chip chip =
+                (com.google.android.material.chip.Chip) chipsContainer.getChildAt(0);
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Verify both millis reset
+        assertEquals(0L, fromField.get(activity));
+        assertEquals(0L, toField.get(activity));
+
+        // Verify buttons reset to hint text
+        android.widget.Button fromButton =
+                activity.findViewById(R.id.browseDateFromButton);
+        android.widget.Button toButton =
+                activity.findViewById(R.id.browseDateToButton);
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_hint),
+                fromButton.getText().toString()
+        );
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_hint),
+                toButton.getText().toString()
+        );
+
+        // List should re-render with all events visible
+        assertEquals(2, container(activity).getChildCount());
+    }
+
+    @Test
+    public void activeChip_category_dismiss_clearsFilterAndInput() {
+        eventRepository.add(event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 100, 50, "Music", "Montreal"));
+        eventRepository.add(event("d2", "Talk", EventStatus.ACTIVE, futureMillis, 100, 50, "Tech", "Montreal"));
+
+        BrowseEventsActivity activity = launch();
+
+        android.widget.EditText categoryInput =
+                activity.findViewById(R.id.browseCategoryFilterInput);
+
+        // Activate category filter
+        categoryInput.setText("Music");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(1, container(activity).getChildCount());
+
+        // Chip should exist
+        LinearLayout chipsContainer =
+                activity.findViewById(R.id.browseActiveChipsContainer);
+        assertTrue(chipsContainer.getChildCount() > 0);
+
+        com.google.android.material.chip.Chip chip =
+                (com.google.android.material.chip.Chip) chipsContainer.getChildAt(0);
+
+        // Dismiss it
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Verify input cleared
+        assertEquals("", categoryInput.getText().toString());
+
+        // Verify list reset
+        assertEquals(2, container(activity).getChildCount());
+    }
+
     // =========================================================================
     // BOTTOM NAV — switch to My Tickets
     // =========================================================================
@@ -506,6 +607,46 @@ public class BrowseEventsActivityRobolectricTest {
         assertNotNull(started);
         assertNotNull(started.getComponent());
         assertEquals(MyTicketsActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    // =========================================================================
+    // ON DESTROY
+    // =========================================================================
+
+    @Test
+    public void onDestroy_removesEventListenerHandle() {
+        BrowseEventsActivity activity = launch();
+
+        // Inject a fake listener handle that records removal
+        final boolean[] removed = { false };
+
+        EventListenerHandle fakeHandle = new EventListenerHandle() {
+            @Override public void remove() {
+                removed[0] = true;
+            }
+        };
+
+        try {
+            java.lang.reflect.Field field =
+                    BrowseEventsActivity.class.getDeclaredField("eventsListenerHandle");
+            field.setAccessible(true);
+            field.set(activity, fakeHandle);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        activity.onDestroy();
+
+        assertTrue(removed[0]);
+
+        try {
+            java.lang.reflect.Field field =
+                    BrowseEventsActivity.class.getDeclaredField("eventsListenerHandle");
+            field.setAccessible(true);
+            assertNull(field.get(activity));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     // =========================================================================
@@ -606,5 +747,140 @@ public class BrowseEventsActivityRobolectricTest {
         assertEquals(View.VISIBLE, emptyText.getVisibility());
         assertEquals(activity.getString(R.string.browse_events_no_match), emptyText.getText().toString());
     }
+
+    // =========================================================================
+    // DATE RANGE FILTER
+    // =========================================================================
+
+    @Test
+    public void dateRangeFilter_includesOnlyEventsInsideRange() throws Exception {
+        long day1 = futureMillis;
+        long day2 = futureMillis + 24 * 60 * 60 * 1000L; // +1 day
+        long day3 = futureMillis + 2 * 24 * 60 * 60 * 1000L; // +2 days
+
+        eventRepository.add(event("d1", "Day1", EventStatus.ACTIVE, day1, 100, 50));
+        eventRepository.add(event("d2", "Day2", EventStatus.ACTIVE, day2, 100, 50));
+        eventRepository.add(event("d3", "Day3", EventStatus.ACTIVE, day3, 100, 50));
+
+        BrowseEventsActivity activity = launch();
+
+        // Set filterDateFromMillis = day2
+        java.lang.reflect.Field fromField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateFromMillis");
+        fromField.setAccessible(true);
+        fromField.set(activity, day2);
+
+        // Set filterDateToMillis = day3
+        java.lang.reflect.Field toField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateToMillis");
+        toField.setAccessible(true);
+        toField.set(activity, day3);
+
+        // Trigger filtering
+        java.lang.reflect.Method method =
+                BrowseEventsActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        method.setAccessible(true);
+        method.invoke(activity);
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Should include only Day2 and Day3
+        assertEquals(2, container(activity).getChildCount());
+    }
+
+    // =========================================================================
+    // SHOW DATE PICKER
+    // =========================================================================
+
+    @Test
+    public void showDatePicker_validFrom_updatesFilterAndButton() throws Exception {
+        BrowseEventsActivity activity = launch();
+
+        java.lang.reflect.Method method =
+                BrowseEventsActivity.class.getDeclaredMethod("showDatePicker", boolean.class);
+        method.setAccessible(true);
+        method.invoke(activity, true); // isFrom = true
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(dialog);
+
+        dialog.getDatePicker().updateDate(2030, 0, 1); // Jan 1 2030
+        dialog.getButton(DatePickerDialog.BUTTON_POSITIVE).performClick();
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        android.widget.Button fromButton =
+                activity.findViewById(R.id.browseDateFromButton);
+
+        assertTrue(fromButton.getText().toString().contains("2030"));
+    }
+
+    @Test
+    public void showDatePicker_fromAfterTo_showsToastAndDoesNotUpdate() throws Exception {
+        BrowseEventsActivity activity = launch();
+
+        // Set filterDateToMillis to earlier date
+        java.lang.reflect.Field toField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateToMillis");
+        toField.setAccessible(true);
+        toField.set(activity, futureMillis);
+
+        java.lang.reflect.Method method =
+                BrowseEventsActivity.class.getDeclaredMethod("showDatePicker", boolean.class);
+        method.setAccessible(true);
+        method.invoke(activity, true);
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        // Pick a later date than TO
+        dialog.getDatePicker().updateDate(2099, 0, 1);
+        dialog.getButton(DatePickerDialog.BUTTON_POSITIVE).performClick();
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_after_to),
+                org.robolectric.shadows.ShadowToast.getTextOfLatestToast()
+        );
+    }
+
+
+    @Test
+    public void showDatePicker_toBeforeFrom_showsToastAndDoesNotUpdate() throws Exception {
+        BrowseEventsActivity activity = launch();
+
+        // Set filterDateFromMillis
+        java.lang.reflect.Field fromField =
+                BrowseEventsActivity.class.getDeclaredField("filterDateFromMillis");
+        fromField.setAccessible(true);
+        fromField.set(activity, futureMillis);
+
+        java.lang.reflect.Method method =
+                BrowseEventsActivity.class.getDeclaredMethod("showDatePicker", boolean.class);
+        method.setAccessible(true);
+        method.invoke(activity, false); // isFrom = false
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        dialog.getDatePicker().updateDate(2000, 0, 1); // earlier
+        dialog.getButton(DatePickerDialog.BUTTON_POSITIVE).performClick();
+
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_before_from),
+                org.robolectric.shadows.ShadowToast.getTextOfLatestToast()
+        );
+    }
+
 
 }

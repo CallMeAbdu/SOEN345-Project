@@ -41,6 +41,7 @@ import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowToast;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -693,20 +694,23 @@ public class HomeActivityRobolectricTest {
         }
 
 
+        private boolean listenerRemoved;
+
         @Override
         public EventListenerHandle listenToEvents(EventListCallback callback) {
             listenCalls++;
             if (callback != null) {
-                if (loadError != null) {
-                    callback.onError(loadError);
-                } else {
-                    List<Event> sorted = new ArrayList<>(events);
-                    sorted.sort((a, b) -> Long.compare(b.getDateTimeMillis(), a.getDateTimeMillis()));
-                    callback.onSuccess(sorted);
-                }
+                if (loadError != null) callback.onError(loadError);
+                else callback.onSuccess(new ArrayList<>(events));
             }
-            return new EventListenerHandle() { @Override public void remove() {} };
+            return new EventListenerHandle() {
+                @Override
+                public void remove() {
+                    listenerRemoved = true;
+                }
+            };
         }
+
         @Override
         public void createEvent(Event event, EventActionCallback callback) {
             createCalls++;
@@ -912,6 +916,107 @@ public class HomeActivityRobolectricTest {
         assertEquals("", catInput.getText().toString());
     }
 
+    @Test
+    public void dateFrom_afterDateTo_showsToastAndDoesNotChangeFilter() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Set TO date = Jan 1 2025
+        Calendar toCal = Calendar.getInstance();
+        toCal.set(2025, Calendar.JANUARY, 1, 0, 0, 0);
+        toCal.set(Calendar.MILLISECOND, 0);
+
+        java.lang.reflect.Field toField =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        toField.setAccessible(true);
+        toField.set(activity, toCal.getTimeInMillis());
+
+        // Open FROM picker
+        activity.findViewById(R.id.homeDateFromButton).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        // Pick Jan 1 2030 (clearly after 2025)
+        dialog.getDatePicker().updateDate(2030, Calendar.JANUARY, 1);
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_after_to),
+                ShadowToast.getTextOfLatestToast()
+        );
+    }
+
+    @Test
+    public void dateTo_beforeDateFrom_showsToastAndDoesNotChangeFilter() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Set FROM date = Jan 1 2030
+        Calendar fromCal = Calendar.getInstance();
+        fromCal.set(2030, Calendar.JANUARY, 1, 0, 0, 0);
+        fromCal.set(Calendar.MILLISECOND, 0);
+
+        java.lang.reflect.Field fromField =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        fromField.setAccessible(true);
+        fromField.set(activity, fromCal.getTimeInMillis());
+
+        // Open TO picker
+        activity.findViewById(R.id.homeDateToButton).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        // Pick Jan 1 2025 (clearly before 2030)
+        dialog.getDatePicker().updateDate(2025, Calendar.JANUARY, 1);
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_before_from),
+                ShadowToast.getTextOfLatestToast()
+        );
+    }
+
+    @Test
+    public void dateRangeFilter_showsOnlyEventsWithinRange() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+
+        long now = System.currentTimeMillis();
+        long inRange = now + 2 * 24 * 60 * 60 * 1000L;
+        long outRange = now + 10 * 24 * 60 * 60 * 1000L;
+
+        eventRepository.events.add(new Event("d1","e1","In","C","L", inRange, EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Out","C","L", outRange, EventStatus.ACTIVE,100,50));
+
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        java.lang.reflect.Field from =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        java.lang.reflect.Field to =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        from.setAccessible(true);
+        to.setAccessible(true);
+
+        from.set(activity, now);
+        to.set(activity, now + 5 * 24 * 60 * 60 * 1000L);
+
+        java.lang.reflect.Method apply =
+                HomeActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        apply.setAccessible(true);
+        apply.invoke(activity);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+    }
+
+
+
     // =========================================================================
     // RENDER — status badge priority on admin cards
     // =========================================================================
@@ -1030,6 +1135,53 @@ public class HomeActivityRobolectricTest {
         assertEquals(2, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
     }
 
+    @Test
+    public void activeChip_dateRange_dismissClearsDatesAndButtons() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        long now = System.currentTimeMillis();
+
+        java.lang.reflect.Field from =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        java.lang.reflect.Field to =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        from.setAccessible(true);
+        to.setAccessible(true);
+        from.set(activity, now);
+        to.set(activity, now);
+
+        java.lang.reflect.Method apply =
+                HomeActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        apply.setAccessible(true);
+        apply.invoke(activity);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout chips = activity.findViewById(R.id.homeActiveChipsContainer);
+        assertTrue(chips.getChildCount() > 0);
+
+        com.google.android.material.chip.Chip chip =
+                (com.google.android.material.chip.Chip) chips.getChildAt(0);
+
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(0L, from.get(activity));
+        assertEquals(0L, to.get(activity));
+
+        Button fromBtn = activity.findViewById(R.id.homeDateFromButton);
+        Button toBtn = activity.findViewById(R.id.homeDateToButton);
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_hint),
+                fromBtn.getText().toString()
+        );
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_hint),
+                toBtn.getText().toString()
+        );
+    }
+
     // =========================================================================
     // DIALOG VALIDATION
     // =========================================================================
@@ -1123,6 +1275,27 @@ public class HomeActivityRobolectricTest {
         assertNotNull(capInput); assertNotNull(capInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
+    // =========================================================================
+    // ON DESTROY
+    // =========================================================================
+
+    @Test
+    public void onDestroy_removesEventListener() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Force loadEvents() to attach listener
+        activity.onStart();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertTrue(eventRepository.listenCalls > 0);
+
+        activity.onDestroy();
+
+        assertTrue(eventRepository.listenerRemoved);
+    }
+
+
 
     // =========================================================================
     // ONSTART — unauthenticated redirect
