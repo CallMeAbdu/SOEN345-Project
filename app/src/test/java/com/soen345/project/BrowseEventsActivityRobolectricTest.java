@@ -883,4 +883,5 @@ public class BrowseEventsActivityRobolectricTest {
     }
 
 
+
 }
