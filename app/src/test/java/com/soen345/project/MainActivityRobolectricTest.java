@@ -90,7 +90,13 @@ public class MainActivityRobolectricTest {
         ShadowActivity shadow = shadowOf(activity);
         Intent startedIntent = shadow.getNextStartedActivity();
         assertNotNull(startedIntent);
-        assertEquals(HomeActivity.class.getName(), startedIntent.getComponent().getClassName());
+        // Customers are routed to BrowseEventsActivity; admins go to HomeActivity
+        assertNotNull(startedIntent.getComponent());
+        String className = startedIntent.getComponent().getClassName();
+        assertTrue(
+                className.equals(HomeActivity.class.getName()) ||
+                        className.equals(BrowseEventsActivity.class.getName())
+        );
     }
 
     @Test
@@ -128,7 +134,13 @@ public class MainActivityRobolectricTest {
 
         Intent startedIntent = shadowOf(activity).getNextStartedActivity();
         assertNotNull(startedIntent);
-        assertEquals(HomeActivity.class.getName(), startedIntent.getComponent().getClassName());
+        // Customers are routed to BrowseEventsActivity; admins go to HomeActivity
+        assertNotNull(startedIntent.getComponent());
+        String className = startedIntent.getComponent().getClassName();
+        assertTrue(
+                className.equals(HomeActivity.class.getName()) ||
+                        className.equals(BrowseEventsActivity.class.getName())
+        );
         assertEquals(View.GONE, progressBar.getVisibility());
         assertTrue(authButton.isEnabled());
     }

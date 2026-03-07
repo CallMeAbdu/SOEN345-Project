@@ -130,6 +130,11 @@ public class EventServiceTest {
             callback.onSuccess(new ArrayList<>(eventsToReturn));
         }
 
+
+        @Override
+        public EventListenerHandle listenToEvents(EventListCallback callback) {
+            return () -> {};
+        }
         @Override
         public void createEvent(Event event, EventActionCallback callback) {
             lastCreatedEvent = event;

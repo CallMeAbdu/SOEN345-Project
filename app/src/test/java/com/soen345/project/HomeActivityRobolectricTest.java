@@ -5,12 +5,11 @@ import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.DialogInterface;
 import android.os.Looper;
-import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 
@@ -23,6 +22,7 @@ import com.soen345.project.auth.UserRole;
 import com.soen345.project.event.Event;
 import com.soen345.project.event.EventActionCallback;
 import com.soen345.project.event.EventListCallback;
+import com.soen345.project.event.EventListenerHandle;
 import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.EventService;
 import com.soen345.project.event.EventServiceProvider;
@@ -41,6 +41,7 @@ import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowToast;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -71,15 +72,16 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
-    public void signOutButton_isTopLeftWrapContent() {
+    public void toolbar_showsTitleAndAdminEmailSubtitle() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        Button signOut = activity.findViewById(R.id.homeSignOutButton);
-        assertNotNull(signOut);
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) signOut.getLayoutParams();
-        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, params.width);
-        assertTrue((params.gravity & Gravity.START) == Gravity.START);
+        com.google.android.material.appbar.MaterialToolbar toolbar =
+                activity.findViewById(R.id.homeToolbar);
+        assertNotNull(toolbar);
+        assertEquals(activity.getString(R.string.home_admin_title), toolbar.getTitle().toString());
+        assertNotNull(toolbar.getSubtitle());
+        assertTrue(toolbar.getSubtitle().toString().contains("admin@example.com"));
     }
 
     @Test
@@ -90,30 +92,44 @@ public class HomeActivityRobolectricTest {
 
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        View adminSection = activity.findViewById(R.id.homeAdminSection);
+        // homeAdminSection removed — admin UI is the full HomeActivity
+        // Verify FAB is visible and both events rendered
+        View fab = activity.findViewById(R.id.homeAddEventButton);
         LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
-        assertEquals(View.VISIBLE, adminSection.getVisibility());
+        assertEquals(View.VISIBLE, fab.getVisibility());
         assertEquals(2, eventContainer.getChildCount());
     }
 
     @Test
-    public void identityFallback_showsUnknownUserAndRoleWhenMissing() {
+    public void toolbar_withNullEmail_showsUnknownUserInSubtitle() {
         authRepository.setSignedIn(null, null);
         HomeActivity activity = launchHome(null, null);
 
-        TextView emailText = activity.findViewById(R.id.homeUserEmailText);
-        TextView roleText = activity.findViewById(R.id.homeRoleText);
-        assertTrue(emailText.getText().toString().contains(activity.getString(R.string.auth_unknown_user)));
-        assertTrue(roleText.getText().toString().contains(activity.getString(R.string.auth_unknown_user)));
+        com.google.android.material.appbar.MaterialToolbar toolbar =
+                activity.findViewById(R.id.homeToolbar);
+        assertNotNull(toolbar);
+        assertNotNull(toolbar.getSubtitle());
+        assertTrue(toolbar.getSubtitle().toString()
+                .contains(activity.getString(R.string.auth_unknown_user)));
     }
 
     @Test
-    public void customerFlow_hidesAdminSection() {
+    public void customerFlow_redirectsToBrowseEventsActivity() {
         authRepository.setSignedIn("customer@example.com", UserRole.CUSTOMER);
-        HomeActivity activity = launchHome("customer@example.com", UserRole.CUSTOMER);
+        Intent intent = HomeActivity.newIntent(
+                androidx.test.core.app.ApplicationProvider.getApplicationContext(),
+                "customer@example.com",
+                UserRole.CUSTOMER
+        );
+        ActivityController<HomeActivity> controller =
+                Robolectric.buildActivity(HomeActivity.class, intent).create().start().resume();
+        HomeActivity activity = controller.get();
 
-        View adminSection = activity.findViewById(R.id.homeAdminSection);
-        assertEquals(View.GONE, adminSection.getVisibility());
+        ShadowActivity shadow = shadowOf(activity);
+        Intent startedIntent = shadow.getNextStartedActivity();
+        assertNotNull(startedIntent);
+        assertNotNull(startedIntent.getComponent());
+        assertEquals(BrowseEventsActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
     @Test
@@ -130,20 +146,24 @@ public class HomeActivityRobolectricTest {
         ShadowActivity shadow = shadowOf(activity);
         Intent startedIntent = shadow.getNextStartedActivity();
         assertNotNull(startedIntent);
+        assertNotNull(startedIntent.getComponent());
         assertEquals(MainActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
     @Test
-    public void signOutClick_signsOutAndNavigatesToMain() {
+    public void signOut_viaMenu_signsOutAndNavigatesToMain() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        Button signOut = activity.findViewById(R.id.homeSignOutButton);
-        signOut.performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        // Trigger the sign out menu item via Robolectric shadow
+        shadowOf(activity).clickMenuItem(R.id.action_sign_out);
+        shadowOf(Looper.getMainLooper()).idle();
 
         assertTrue(authRepository.signOutCalls > 0);
         Intent startedIntent = shadowOf(activity).getNextStartedActivity();
         assertNotNull(startedIntent);
+        assertNotNull(startedIntent.getComponent());
         assertEquals(MainActivity.class.getName(), startedIntent.getComponent().getClassName());
     }
 
@@ -164,7 +184,7 @@ public class HomeActivityRobolectricTest {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
-        int initialLoadCalls = eventRepository.loadCalls;
+        int initialListenCalls = eventRepository.listenCalls;
         activity.findViewById(R.id.homeAddEventButton).performClick();
         AlertDialog dialog = latestDialog();
         fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Bell", "100", "80");
@@ -174,7 +194,7 @@ public class HomeActivityRobolectricTest {
         assertNotNull(eventRepository.lastCreatedEvent);
         assertEquals("Concert", eventRepository.lastCreatedEvent.getTitle());
         assertEquals(EventStatus.ACTIVE, eventRepository.lastCreatedEvent.getStatus());
-        assertTrue(eventRepository.loadCalls > initialLoadCalls);
+        assertTrue(eventRepository.listenCalls > initialListenCalls);
     }
 
     @Test
@@ -207,7 +227,7 @@ public class HomeActivityRobolectricTest {
 
         EditText title = dialog.findViewById(R.id.dialogEventTitleInput);
         assertNotNull(title);
-        assertNotNull(title.getError());
+        assertNotNull(title); assertNotNull(title.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -223,7 +243,7 @@ public class HomeActivityRobolectricTest {
 
         EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
         assertNotNull(timeInput);
-        assertNotNull(timeInput.getError());
+        assertNotNull(timeInput); assertNotNull(timeInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -239,7 +259,7 @@ public class HomeActivityRobolectricTest {
 
         EditText timeInput = dialog.findViewById(R.id.dialogEventTimeInput);
         assertNotNull(timeInput);
-        assertNotNull(timeInput.getError());
+        assertNotNull(timeInput); assertNotNull(timeInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -255,7 +275,7 @@ public class HomeActivityRobolectricTest {
 
         EditText categoryInput = dialog.findViewById(R.id.dialogEventCategoryInput);
         assertNotNull(categoryInput);
-        assertNotNull(categoryInput.getError());
+        assertNotNull(categoryInput); assertNotNull(categoryInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -271,7 +291,7 @@ public class HomeActivityRobolectricTest {
 
         EditText locationInput = dialog.findViewById(R.id.dialogEventLocationInput);
         assertNotNull(locationInput);
-        assertNotNull(locationInput.getError());
+        assertNotNull(locationInput); assertNotNull(locationInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -287,7 +307,7 @@ public class HomeActivityRobolectricTest {
 
         EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
         assertNotNull(totalInput);
-        assertNotNull(totalInput.getError());
+        assertNotNull(totalInput); assertNotNull(totalInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -303,7 +323,7 @@ public class HomeActivityRobolectricTest {
 
         EditText totalInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
         assertNotNull(totalInput);
-        assertNotNull(totalInput.getError());
+        assertNotNull(totalInput); assertNotNull(totalInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -319,7 +339,7 @@ public class HomeActivityRobolectricTest {
 
         EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
         assertNotNull(remainingInput);
-        assertNotNull(remainingInput.getError());
+        assertNotNull(remainingInput); assertNotNull(remainingInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -335,7 +355,7 @@ public class HomeActivityRobolectricTest {
 
         EditText remainingInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
         assertNotNull(remainingInput);
-        assertNotNull(remainingInput.getError());
+        assertNotNull(remainingInput); assertNotNull(remainingInput.getError());
         assertEquals(0, eventRepository.createCalls);
     }
 
@@ -362,7 +382,7 @@ public class HomeActivityRobolectricTest {
 
         LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
         View firstItem = eventContainer.getChildAt(0);
-        Button editButton = firstItem.findViewById(R.id.eventItemEditButton);
+        android.widget.ImageButton editButton = firstItem.findViewById(R.id.eventItemEditButton);
         editButton.performClick();
 
         AlertDialog dialog = latestDialog();
@@ -383,7 +403,7 @@ public class HomeActivityRobolectricTest {
 
         LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
         View firstItem = eventContainer.getChildAt(0);
-        Button editButton = firstItem.findViewById(R.id.eventItemEditButton);
+        android.widget.ImageButton editButton = firstItem.findViewById(R.id.eventItemEditButton);
         editButton.performClick();
 
         AlertDialog dialog = latestDialog();
@@ -397,26 +417,32 @@ public class HomeActivityRobolectricTest {
     }
 
     @Test
-    public void toggleStatus_callsRepositoryForCancelAndActivate() {
+    public void toggleStatus_activeEvent_sendsCancel() {
         authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
         eventRepository.events.add(new Event("doc-1", "event-1", "Active Event", "Music", "Hall A", 2000L, EventStatus.ACTIVE, 100, 80));
-        eventRepository.events.add(new Event("doc-2", "event-2", "Cancelled Event", "Talk", "Hall B", 1000L, EventStatus.CANCELLED, 100, 0));
         HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
 
         LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
-        View firstItem = eventContainer.getChildAt(0);
-        View secondItem = eventContainer.getChildAt(1);
-
-        Button statusFirst = firstItem.findViewById(R.id.eventItemStatusButton);
-        statusFirst.performClick();
+        Button statusButton = eventContainer.getChildAt(0).findViewById(R.id.eventItemStatusButton);
+        statusButton.performClick();
         clickPositive(latestDialog());
+
         assertEquals(1, eventRepository.statusCalls);
         assertEquals(EventStatus.CANCELLED, eventRepository.lastStatus);
+    }
 
-        Button statusSecond = secondItem.findViewById(R.id.eventItemStatusButton);
-        statusSecond.performClick();
+    @Test
+    public void toggleStatus_cancelledEvent_sendsActivate() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("doc-1", "event-1", "Cancelled Event", "Music", "Hall A", 2000L, EventStatus.CANCELLED, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout eventContainer = activity.findViewById(R.id.homeEventsContainer);
+        Button statusButton = eventContainer.getChildAt(0).findViewById(R.id.eventItemStatusButton);
+        statusButton.performClick();
         clickPositive(latestDialog());
-        assertEquals(2, eventRepository.statusCalls);
+
+        assertEquals(1, eventRepository.statusCalls);
         assertEquals(EventStatus.ACTIVE, eventRepository.lastStatus);
     }
 
@@ -652,6 +678,7 @@ public class HomeActivityRobolectricTest {
         private String updateError;
         private String statusError;
         private int loadCalls;
+        private int listenCalls;
         private int createCalls;
         private int updateCalls;
         private int statusCalls;
@@ -664,6 +691,24 @@ public class HomeActivityRobolectricTest {
                 return;
             }
             callback.onSuccess(new ArrayList<>(events));
+        }
+
+
+        private boolean listenerRemoved;
+
+        @Override
+        public EventListenerHandle listenToEvents(EventListCallback callback) {
+            listenCalls++;
+            if (callback != null) {
+                if (loadError != null) callback.onError(loadError);
+                else callback.onSuccess(new ArrayList<>(events));
+            }
+            return new EventListenerHandle() {
+                @Override
+                public void remove() {
+                    listenerRemoved = true;
+                }
+            };
         }
 
         @Override
@@ -698,7 +743,578 @@ public class HomeActivityRobolectricTest {
                 callback.onError(statusError);
                 return;
             }
+            // Mutate in-memory so re-delivery via listenToEvents reflects the new status
+            for (int i = 0; i < events.size(); i++) {
+                Event e = events.get(i);
+                if (e.getDocumentId().equals(documentId)) {
+                    events.set(i, new Event(
+                            e.getDocumentId(), e.getEventId(), e.getTitle(),
+                            e.getCategory(), e.getLocation(), e.getDateTimeMillis(),
+                            status != null ? status : EventStatus.ACTIVE,
+                            e.getCapacityTotal(), e.getCapacityRemaining()
+                    ));
+                    break;
+                }
+            }
             callback.onSuccess();
         }
     }
+    // =========================================================================
+    // STATUS FILTER SPINNER
+    // =========================================================================
+
+    @Test
+    public void statusFilter_active_showsOnlyFutureActiveEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        long past   = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Future Active",    "C", "L", future, EventStatus.ACTIVE,    100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Past Event",       "C", "L", past,   EventStatus.ACTIVE,    100, 50));
+        eventRepository.events.add(new Event("d3", "e3", "Cancelled Event",  "C", "L", future, EventStatus.CANCELLED, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        Spinner statusSpinner = activity.findViewById(R.id.homeStatusFilterSpinner);
+        statusSpinner.setSelection(1); // STATUS_ACTIVE
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Future Active", title.getText().toString());
+    }
+
+    @Test
+    public void statusFilter_cancelled_showsOnlyCancelledEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Active Event",    "C", "L", future, EventStatus.ACTIVE,    100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Cancelled Event", "C", "L", future, EventStatus.CANCELLED, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeStatusFilterSpinner);
+        Spinner statusSpinner = activity.findViewById(R.id.homeStatusFilterSpinner);
+        statusSpinner.setSelection(2); // STATUS_CANCELLED
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Cancelled Event", title.getText().toString());
+    }
+
+    @Test
+    public void statusFilter_past_showsOnlyPastEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        long past   = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Future Event", "C", "L", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Past Event",   "C", "L", past,   EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        Spinner statusSpinner = activity.findViewById(R.id.homeStatusFilterSpinner);
+        statusSpinner.setSelection(3); // STATUS_PAST
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Past Event", title.getText().toString());
+    }
+
+    @Test
+    public void statusFilter_soldOut_showsOnlySoldOutEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Normal Event",   "C", "L", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Sold Out Event", "C", "L", future, EventStatus.ACTIVE, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        Spinner statusSpinner = activity.findViewById(R.id.homeStatusFilterSpinner);
+        statusSpinner.setSelection(4); // STATUS_COMPLETE
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Sold Out Event", title.getText().toString());
+    }
+
+    // =========================================================================
+    // ADMIN FILTER PANEL — category / location / date range / clear
+    // =========================================================================
+
+    @Test
+    public void filterPanel_toggle_expandsAndCollapses() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        com.google.android.material.chip.Chip chip = activity.findViewById(R.id.homeFilterToggleChip);
+        LinearLayout panel = activity.findViewById(R.id.homeFilterPanel);
+
+        assertEquals(View.GONE, panel.getVisibility());
+        chip.performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(View.VISIBLE, panel.getVisibility());
+        chip.performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(View.GONE, panel.getVisibility());
+    }
+
+    @Test
+    public void categoryFilter_showsOnlyMatchingEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Jazz Night", "Music", "Hall A", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Tech Talk",  "Tech",  "Hall B", future, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        android.widget.EditText catInput = activity.findViewById(R.id.homeCategoryFilterInput);
+        catInput.setText("Music");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Jazz Night", title.getText().toString());
+    }
+
+    @Test
+    public void locationFilter_showsOnlyMatchingEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Event A", "C", "Montreal", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Event B", "C", "Toronto",  future, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        android.widget.EditText locInput = activity.findViewById(R.id.homeLocationFilterInput);
+        locInput.setText("Toronto");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView title = container.getChildAt(0).findViewById(R.id.eventItemTitle);
+        assertEquals("Event B", title.getText().toString());
+    }
+
+    @Test
+    public void clearFilters_resetsAllAndShowsAllEvents() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Jazz Night", "Music", "Hall A", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Tech Talk",  "Tech",  "Hall B", future, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        android.widget.EditText catInput = activity.findViewById(R.id.homeCategoryFilterInput);
+        catInput.setText("Music");
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(1, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
+
+        activity.findViewById(R.id.homeClearFiltersButton).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(2, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
+        assertEquals("", catInput.getText().toString());
+    }
+
+    @Test
+    public void dateFrom_afterDateTo_showsToastAndDoesNotChangeFilter() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Set TO date = Jan 1 2025
+        Calendar toCal = Calendar.getInstance();
+        toCal.set(2025, Calendar.JANUARY, 1, 0, 0, 0);
+        toCal.set(Calendar.MILLISECOND, 0);
+
+        java.lang.reflect.Field toField =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        toField.setAccessible(true);
+        toField.set(activity, toCal.getTimeInMillis());
+
+        // Open FROM picker
+        activity.findViewById(R.id.homeDateFromButton).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        // Pick Jan 1 2030 (clearly after 2025)
+        dialog.getDatePicker().updateDate(2030, Calendar.JANUARY, 1);
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_after_to),
+                ShadowToast.getTextOfLatestToast()
+        );
+    }
+
+    @Test
+    public void dateTo_beforeDateFrom_showsToastAndDoesNotChangeFilter() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Set FROM date = Jan 1 2030
+        Calendar fromCal = Calendar.getInstance();
+        fromCal.set(2030, Calendar.JANUARY, 1, 0, 0, 0);
+        fromCal.set(Calendar.MILLISECOND, 0);
+
+        java.lang.reflect.Field fromField =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        fromField.setAccessible(true);
+        fromField.set(activity, fromCal.getTimeInMillis());
+
+        // Open TO picker
+        activity.findViewById(R.id.homeDateToButton).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        DatePickerDialog dialog =
+                (DatePickerDialog) ShadowDialog.getLatestDialog();
+
+        // Pick Jan 1 2025 (clearly before 2030)
+        dialog.getDatePicker().updateDate(2025, Calendar.JANUARY, 1);
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_before_from),
+                ShadowToast.getTextOfLatestToast()
+        );
+    }
+
+    @Test
+    public void dateRangeFilter_showsOnlyEventsWithinRange() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+
+        long now = System.currentTimeMillis();
+        long inRange = now + 2 * 24 * 60 * 60 * 1000L;
+        long outRange = now + 10 * 24 * 60 * 60 * 1000L;
+
+        eventRepository.events.add(new Event("d1","e1","In","C","L", inRange, EventStatus.ACTIVE,100,50));
+        eventRepository.events.add(new Event("d2","e2","Out","C","L", outRange, EventStatus.ACTIVE,100,50));
+
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        java.lang.reflect.Field from =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        java.lang.reflect.Field to =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        from.setAccessible(true);
+        to.setAccessible(true);
+
+        from.set(activity, now);
+        to.set(activity, now + 5 * 24 * 60 * 60 * 1000L);
+
+        java.lang.reflect.Method apply =
+                HomeActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        apply.setAccessible(true);
+        apply.invoke(activity);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        assertEquals(1, container.getChildCount());
+    }
+
+
+
+    // =========================================================================
+    // RENDER — status badge priority on admin cards
+    // =========================================================================
+
+    @Test
+    public void renderEvents_pastEvent_showsPastBadge() {
+        long past = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Past Event", "C", "L", past, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        View card = container.getChildAt(0);
+        TextView badge = card.findViewById(R.id.eventItemStatusBadge);
+        assertEquals(activity.getString(R.string.browse_event_past_badge), badge.getText().toString());
+    }
+
+    @Test
+    public void renderEvents_soldOutEvent_showsSoldOutBadge() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Sold Out", "C", "L", future, EventStatus.ACTIVE, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        View card = container.getChildAt(0);
+        TextView badge = card.findViewById(R.id.eventItemStatusBadge);
+        assertEquals(activity.getString(R.string.browse_event_sold_out_badge), badge.getText().toString());
+    }
+
+    @Test
+    public void renderEvents_cancelledEvent_showsCancelledBadge() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Cancelled", "C", "L", future, EventStatus.CANCELLED, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        LinearLayout container = activity.findViewById(R.id.homeEventsContainer);
+        View card = container.getChildAt(0);
+        TextView badge = card.findViewById(R.id.eventItemStatusBadge);
+        assertEquals(activity.getString(R.string.home_status_cancelled), badge.getText().toString());
+    }
+
+    @Test
+    public void renderEvents_emptyList_withFilters_showsNoMatchText() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        eventRepository.events.add(new Event("d1", "e1", "Jazz Night", "Music", "L", future, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        android.widget.EditText catInput = activity.findViewById(R.id.homeCategoryFilterInput);
+        catInput.setText("NonExistentCategory");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        TextView emptyText = activity.findViewById(R.id.homeEventsEmptyText);
+        assertEquals(View.VISIBLE, emptyText.getVisibility());
+        assertEquals(activity.getString(R.string.browse_events_no_match), emptyText.getText().toString());
+    }
+
+    @Test
+    public void renderEvents_emptyList_withoutFilters_showsEmptyText() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        TextView emptyText = activity.findViewById(R.id.homeEventsEmptyText);
+        assertEquals(View.VISIBLE, emptyText.getVisibility());
+        assertEquals(activity.getString(R.string.home_events_empty), emptyText.getText().toString());
+    }
+
+    // =========================================================================
+    // ACTIVE CHIPS
+    // =========================================================================
+
+    @Test
+    public void activeChip_category_dismissClearsFilter() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Jazz Night", "Music", "L", future, EventStatus.ACTIVE, 100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Tech Talk",  "Tech",  "L", future, EventStatus.ACTIVE, 100, 50));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        android.widget.EditText catInput = activity.findViewById(R.id.homeCategoryFilterInput);
+        catInput.setText("Music");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // One chip should appear — dismiss it
+        LinearLayout chipsContainer = activity.findViewById(R.id.homeActiveChipsContainer);
+        assertTrue(chipsContainer.getChildCount() > 0);
+        com.google.android.material.chip.Chip chip = (com.google.android.material.chip.Chip) chipsContainer.getChildAt(0);
+        chip.getCloseIconContentDescription(); // just ensure it's a chip
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("", catInput.getText().toString());
+        assertEquals(2, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
+    }
+
+    @Test
+    public void activeChip_statusFilter_dismissClearsFilter() {
+        long future = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000L;
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        eventRepository.events.add(new Event("d1", "e1", "Active",    "C", "L", future, EventStatus.ACTIVE,    100, 50));
+        eventRepository.events.add(new Event("d2", "e2", "Cancelled", "C", "L", future, EventStatus.CANCELLED, 100, 0));
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        Spinner statusSpinner = activity.findViewById(R.id.homeStatusFilterSpinner);
+        statusSpinner.setSelection(2); // STATUS_CANCELLED
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(1, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
+
+        LinearLayout chipsContainer = activity.findViewById(R.id.homeActiveChipsContainer);
+        com.google.android.material.chip.Chip chip = (com.google.android.material.chip.Chip) chipsContainer.getChildAt(0);
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(2, ((LinearLayout) activity.findViewById(R.id.homeEventsContainer)).getChildCount());
+    }
+
+    @Test
+    public void activeChip_dateRange_dismissClearsDatesAndButtons() throws Exception {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        long now = System.currentTimeMillis();
+
+        java.lang.reflect.Field from =
+                HomeActivity.class.getDeclaredField("filterDateFromMillis");
+        java.lang.reflect.Field to =
+                HomeActivity.class.getDeclaredField("filterDateToMillis");
+        from.setAccessible(true);
+        to.setAccessible(true);
+        from.set(activity, now);
+        to.set(activity, now);
+
+        java.lang.reflect.Method apply =
+                HomeActivity.class.getDeclaredMethod("applyFiltersAndRender");
+        apply.setAccessible(true);
+        apply.invoke(activity);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout chips = activity.findViewById(R.id.homeActiveChipsContainer);
+        assertTrue(chips.getChildCount() > 0);
+
+        com.google.android.material.chip.Chip chip =
+                (com.google.android.material.chip.Chip) chips.getChildAt(0);
+
+        chip.performCloseIconClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(0L, from.get(activity));
+        assertEquals(0L, to.get(activity));
+
+        Button fromBtn = activity.findViewById(R.id.homeDateFromButton);
+        Button toBtn = activity.findViewById(R.id.homeDateToButton);
+
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_from_hint),
+                fromBtn.getText().toString()
+        );
+        assertEquals(
+                activity.getString(R.string.browse_filter_date_to_hint),
+                toBtn.getText().toString()
+        );
+    }
+
+    // =========================================================================
+    // DIALOG VALIDATION
+    // =========================================================================
+
+    @Test
+    public void addEventDialog_emptyTitle_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "", "2026-05-15 20:00", "Music", "Hall", "100", "80");
+        clickPositive(dialog);
+
+        android.widget.EditText titleInput = dialog.findViewById(R.id.dialogEventTitleInput);
+        assertNotNull(titleInput); assertNotNull(titleInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_emptyCategory_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "", "Hall", "100", "80");
+        clickPositive(dialog);
+
+        android.widget.EditText catInput = dialog.findViewById(R.id.dialogEventCategoryInput);
+        assertNotNull(catInput); assertNotNull(catInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_emptyLocation_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "", "100", "80");
+        clickPositive(dialog);
+
+        android.widget.EditText locInput = dialog.findViewById(R.id.dialogEventLocationInput);
+        assertNotNull(locInput); assertNotNull(locInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_emptyCapacityTotal_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Hall", "", "");
+        clickPositive(dialog);
+
+        android.widget.EditText capInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
+        assertNotNull(capInput); assertNotNull(capInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_remainingExceedsTotal_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Hall", "50", "100");
+        clickPositive(dialog);
+
+        android.widget.EditText remInput = dialog.findViewById(R.id.dialogEventCapacityRemainingInput);
+        assertNotNull(remInput); assertNotNull(remInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+
+    @Test
+    public void addEventDialog_negativeCapacity_showsError() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        activity.findViewById(R.id.homeAddEventButton).performClick();
+        AlertDialog dialog = latestDialog();
+        fillEventDialog(dialog, "Concert", "2026-05-15 20:00", "Music", "Hall", "-5", "");
+        clickPositive(dialog);
+
+        android.widget.EditText capInput = dialog.findViewById(R.id.dialogEventCapacityTotalInput);
+        assertNotNull(capInput); assertNotNull(capInput.getError());
+        assertEquals(0, eventRepository.createCalls);
+    }
+    // =========================================================================
+    // ON DESTROY
+    // =========================================================================
+
+    @Test
+    public void onDestroy_removesEventListener() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Force loadEvents() to attach listener
+        activity.onStart();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertTrue(eventRepository.listenCalls > 0);
+
+        activity.onDestroy();
+
+        assertTrue(eventRepository.listenerRemoved);
+    }
+
+
+
+    // =========================================================================
+    // ONSTART — unauthenticated redirect
+    // =========================================================================
+
+    @Test
+    public void onStart_whenNotSignedIn_redirectsToMain() {
+        authRepository.setSignedIn("admin@example.com", UserRole.ADMIN);
+        HomeActivity activity = launchHome("admin@example.com", UserRole.ADMIN);
+
+        // Sign out and call onStart manually
+        authRepository.signedIn = false;
+        activity.onStart();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        Intent started = shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertNotNull(started.getComponent());
+        assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
+    }
+
 }

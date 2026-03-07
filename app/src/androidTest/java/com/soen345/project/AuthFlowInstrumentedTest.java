@@ -1,5 +1,6 @@
 package com.soen345.project;
 
+import android.view.View;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.espresso.matcher.ViewMatchers.Visibility;
@@ -29,7 +30,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
-import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(AndroidJUnit4.class)
 public class AuthFlowInstrumentedTest {
@@ -48,7 +48,7 @@ public class AuthFlowInstrumentedTest {
     }
 
     @Test
-    public void registerFlow_navigatesToHome() {
+    public void registerFlow_navigatesToBrowseEvents() {
         try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
             onView(withId(R.id.modeSwitchText)).perform(scrollTo(), click());
             onView(withId(R.id.emailInput)).perform(replaceText("new@example.com"), closeSoftKeyboard());
@@ -57,24 +57,22 @@ public class AuthFlowInstrumentedTest {
             onView(withId(R.id.confirmPasswordInput)).perform(replaceText("password123"), closeSoftKeyboard());
             onView(withId(R.id.authButton)).perform(scrollTo(), click());
 
-            onView(withId(R.id.homeRoot)).check(matches(isDisplayed()));
-            onView(withId(R.id.homeTitle)).check(matches(isDisplayed()));
-            onView(withId(R.id.homeUserEmailText)).check(matches(withText(containsString("new@example.com"))));
-            onView(withId(R.id.homeRoleText)).check(matches(withText(containsString("Customer"))));
+            // Customers are routed to BrowseEventsActivity
+            onView(withId(R.id.browseRoot)).check(matches(isDisplayed()));
+            onView(withId(R.id.browseToolbar)).check(matches(isDisplayed()));
         }
     }
 
     @Test
-    public void signInFlow_navigatesToHome() {
+    public void signInFlow_navigatesToBrowseEvents() {
         try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
             onView(withId(R.id.emailInput)).perform(replaceText("seed@example.com"), closeSoftKeyboard());
             onView(withId(R.id.passwordInput)).perform(replaceText("password123"), closeSoftKeyboard());
             onView(withId(R.id.authButton)).perform(scrollTo(), click());
 
-            onView(withId(R.id.homeRoot)).check(matches(isDisplayed()));
-            onView(withId(R.id.homeTitle)).check(matches(isDisplayed()));
-            onView(withId(R.id.homeUserEmailText)).check(matches(withText(containsString("seed@example.com"))));
-            onView(withId(R.id.homeRoleText)).check(matches(withText(containsString("Customer"))));
+            // Customers are routed to BrowseEventsActivity
+            onView(withId(R.id.browseRoot)).check(matches(isDisplayed()));
+            onView(withId(R.id.browseToolbar)).check(matches(isDisplayed()));
         }
     }
 
@@ -85,7 +83,25 @@ public class AuthFlowInstrumentedTest {
             onView(withId(R.id.passwordInput)).perform(replaceText("password123"), closeSoftKeyboard());
             onView(withId(R.id.authButton)).perform(scrollTo(), click());
 
-            onView(withId(R.id.homeSignOutButton)).check(matches(isDisplayed())).perform(click());
+            // Customers land on BrowseEventsActivity
+            onView(withId(R.id.browseRoot)).check(matches(isDisplayed()));
+
+            // Click the overflow icon directly in the MaterialToolbar
+            onView(withId(R.id.browseToolbar))
+                    .perform(new androidx.test.espresso.ViewAction() {
+                        @Override public org.hamcrest.Matcher<View> getConstraints() {
+                            return androidx.test.espresso.matcher.ViewMatchers.isDisplayed();
+                        }
+                        @Override public String getDescription() { return "click overflow menu"; }
+                        @Override public void perform(androidx.test.espresso.UiController c, View v) {
+                            if (v instanceof com.google.android.material.appbar.MaterialToolbar) {
+                                ((com.google.android.material.appbar.MaterialToolbar) v)
+                                        .showOverflowMenu();
+                            }
+                        }
+                    });
+            onView(withText(R.string.auth_action_sign_out))
+                    .perform(click());
 
             onView(withId(R.id.titleText)).check(matches(withText(R.string.auth_title_sign_in)));
             onView(withId(R.id.authButton)).check(matches(isDisplayed()));

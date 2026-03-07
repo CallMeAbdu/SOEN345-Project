@@ -2,21 +2,21 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/homeRoot"
+    android:id="@+id/browseRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <!-- Top app bar -->
     <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/homeAppBarLayout"
+        android:id="@+id/browseAppBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
         <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/homeToolbar"
+            android:id="@+id/browseToolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="@string/home_admin_title" />
+            app:title="@string/browse_title" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -24,10 +24,10 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginBottom="0dp"
+        android:layout_marginBottom="64dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Filter bar: always visible, collapsible panel below -->
+        <!-- Collapsed filter bar: always visible -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -37,8 +37,9 @@
             android:paddingVertical="6dp"
             android:background="?attr/colorSurfaceVariant">
 
+            <!-- Filter toggle chip -->
             <com.google.android.material.chip.Chip
-                android:id="@+id/homeFilterToggleChip"
+                android:id="@+id/browseFilterToggleChip"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -46,6 +47,7 @@
                 app:chipIcon="@drawable/ic_filter"
                 app:chipIconVisible="true" />
 
+            <!-- Active filter chips (shown when a filter is set) -->
             <HorizontalScrollView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -54,7 +56,7 @@
                 android:scrollbars="none">
 
                 <LinearLayout
-                    android:id="@+id/homeActiveChipsContainer"
+                    android:id="@+id/browseActiveChipsContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -62,9 +64,9 @@
             </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Expandable filter panel -->
+        <!-- Expandable filter panel (collapsed by default) -->
         <LinearLayout
-            android:id="@+id/homeFilterPanel"
+            android:id="@+id/browseFilterPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -74,43 +76,12 @@
             android:background="?attr/colorSurfaceVariant"
             android:visibility="gone">
 
+            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="?attr/colorOutline"
                 android:layout_marginBottom="10dp" />
-
-            <!-- Date from → to -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <Button
-                    android:id="@+id/homeDateFromButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/browse_filter_date_from_hint" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingHorizontal="10dp"
-                    android:text="@string/browse_filter_date_range_separator"
-                    android:textSize="16sp" />
-
-                <Button
-                    android:id="@+id/homeDateToButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/browse_filter_date_to_hint" />
-            </LinearLayout>
 
             <!-- Sort row -->
             <LinearLayout
@@ -136,10 +107,42 @@
                     android:paddingVertical="2dp">
 
                     <Spinner
-                        android:id="@+id/homeSortSpinner"
+                        android:id="@+id/browseSortSpinner"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content" />
                 </LinearLayout>
+            </LinearLayout>
+
+            <!-- Date from → to -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <Button
+                    android:id="@+id/browseDateFromButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/browse_filter_date_from_hint" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/browse_filter_date_range_separator"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/browseDateToButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/browse_filter_date_to_hint" />
             </LinearLayout>
 
             <!-- Category + Location -->
@@ -159,7 +162,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
 
                     <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/homeCategoryFilterInput"
+                        android:id="@+id/browseCategoryFilterInput"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="text"
@@ -174,7 +177,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
 
                     <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/homeLocationFilterInput"
+                        android:id="@+id/browseLocationFilterInput"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="text"
@@ -182,7 +185,43 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- Status filter + Clear -->
+            <!-- Row 4a: Upcoming only + Available only -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/browse_filter_hide_past"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/browseHidePastSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="20dp"
+                    android:checked="true" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/browse_filter_hide_sold_out"
+                    android:textSize="14sp" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/browseHideSoldOutSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:checked="false" />
+            </LinearLayout>
+
+            <!-- Row 4b: Hide cancelled + spacer + Clear filters -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -192,26 +231,23 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/home_filter_status_label"
-                    android:textSize="14sp"
-                    android:layout_marginEnd="8dp" />
+                    android:text="@string/browse_filter_hide_cancelled"
+                    android:textSize="14sp" />
 
-                <LinearLayout
-                    android:layout_width="0dp"
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/browseHideCancelledSwitch"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_spinner_box"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="2dp">
+                    android:layout_marginStart="8dp"
+                    android:checked="true" />
 
-                    <Spinner
-                        android:id="@+id/homeStatusFilterSpinner"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
                 <Button
-                    android:id="@+id/homeClearFiltersButton"
+                    android:id="@+id/browseClearFiltersButton"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -227,7 +263,7 @@
             android:layout_weight="1"
             android:fillViewport="true"
             android:clipToPadding="false"
-            android:paddingBottom="88dp">
+            android:paddingBottom="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -236,7 +272,7 @@
                 android:padding="12dp">
 
                 <TextView
-                    android:id="@+id/homeEventsEmptyText"
+                    android:id="@+id/browseEventsEmptyText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
@@ -246,7 +282,7 @@
                     android:text="@string/home_events_empty" />
 
                 <LinearLayout
-                    android:id="@+id/homeEventsContainer"
+                    android:id="@+id/browseEventsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -255,14 +291,13 @@
         </ScrollView>
     </LinearLayout>
 
-    <!-- FAB: Add Event -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/homeAddEventButton"
-        android:layout_width="wrap_content"
+    <!-- Bottom navigation -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/browseBottomNav"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:text="@string/home_add_event_action"
-        app:icon="@drawable/ic_add_event" />
+        android:layout_gravity="bottom"
+        app:menu="@menu/menu_bottom_nav"
+        app:labelVisibilityMode="labeled" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

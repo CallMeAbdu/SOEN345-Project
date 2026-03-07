@@ -19,6 +19,7 @@ import com.soen345.project.auth.AuthSession;
 import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.UserRole;
+import com.soen345.project.BrowseEventsActivity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -157,7 +158,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void navigateToHome(String email, UserRole role) {
-        startActivity(HomeActivity.newIntent(this, email, role));
+        if (role == UserRole.CUSTOMER) {
+            startActivity(BrowseEventsActivity.newIntent(this, email, role != null ? role.value() : null));
+        } else {
+            startActivity(HomeActivity.newIntent(this, email, role));
+        }
         finish();
     }
 }

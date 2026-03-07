@@ -14,7 +14,7 @@
         android:orientation="vertical"
         android:padding="14dp">
 
-        <!-- Row 1: Title + status badge + edit icon -->
+        <!-- Row 1: Title + badges -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -23,7 +23,7 @@
             android:layout_marginBottom="4dp">
 
             <TextView
-                android:id="@+id/eventItemTitle"
+                android:id="@+id/browseEventItemTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -31,29 +31,46 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/eventItemStatusBadge"
+                android:id="@+id/browseEventCancelledBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="2dp"
+                android:text="@string/home_status_cancelled"
                 android:textSize="11sp"
                 android:textColor="#FFFFFF"
-                android:background="@drawable/bg_status_active"
+                android:background="@drawable/bg_status_cancelled"
                 android:visibility="gone" />
 
-            <ImageButton
-                android:id="@+id/eventItemEditButton"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="8dp"
-                android:padding="6dp"
-                android:src="@drawable/ic_edit"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/home_edit_event_action" />
+            <TextView
+                android:id="@+id/browseEventPastBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/browse_event_past_badge"
+                android:textSize="11sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_past_badge"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/browseEventSoldOutBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/browse_event_sold_out_badge"
+                android:textSize="11sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_sold_out_badge"
+                android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Row 2: Details + Cancel/Activate + Sold Out toggle -->
+        <!-- Row 2: Details + Reserve button side by side -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -61,30 +78,23 @@
             android:gravity="center_vertical">
 
             <TextView
-                android:id="@+id/eventItemDetails"
+                android:id="@+id/browseEventItemDetails"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:textSize="13sp"
                 android:lineSpacingMultiplier="1.3" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/browseEventReserveButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end"
-                android:layout_marginStart="8dp">
-
-                <Button
-                    android:id="@+id/eventItemStatusButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="10dp"
-                    android:textSize="12sp"
-                    android:text="@string/home_cancel_event_action" />
-            </LinearLayout>
+                android:layout_marginStart="8dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="10dp"
+                android:text="@string/browse_event_reserve_button"
+                android:textSize="12sp" />
         </LinearLayout>
 
     </LinearLayout>

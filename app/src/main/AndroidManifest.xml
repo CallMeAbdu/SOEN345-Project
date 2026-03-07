@@ -14,6 +14,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SOEN345Project">
         <activity
+            android:name=".BrowseEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MyTicketsActivity"
+            android:exported="false" />
+        <activity
             android:name=".HomeActivity"
             android:exported="false" />
         <activity
