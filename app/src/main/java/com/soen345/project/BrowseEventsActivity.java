@@ -648,19 +648,27 @@ public class BrowseEventsActivity extends AppCompatActivity {
             userEmail = authService.getSignedInEmail();
         }
         if (isNullOrBlank(userEmail)) {
-            Toast.makeText(this, "User email is null or blank", Toast.LENGTH_SHORT).show();
+            showResultDialog("Error", "User email is null or blank");
             return;
         }
         reservationService.reserveTicket(e, userEmail, new ReservationRepository.ReservationActionCallback() {
             @Override
             public void onSuccess() {
-                Toast.makeText(BrowseEventsActivity.this, "Reservation successful", Toast.LENGTH_SHORT).show();
+                showResultDialog("Success", "BOOKED");
             }
             @Override
             public void onError(String errorMessage) {
-                Toast.makeText(BrowseEventsActivity.this, "Reservation failed: " + errorMessage, Toast.LENGTH_SHORT).show();
+                showResultDialog("Error", "Reservation failed: " + errorMessage);
             }
         });
+    }
+
+    private void showResultDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
     }
 
 
