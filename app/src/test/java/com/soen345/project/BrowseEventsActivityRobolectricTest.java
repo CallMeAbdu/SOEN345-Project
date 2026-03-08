@@ -758,17 +758,14 @@ public class BrowseEventsActivityRobolectricTest {
         eventRepository.add(e);
         BrowseEventsActivity activity = launch();
 
-        // 1. Trigger confirmation dialog
         java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("showReserveConfirmation", Event.class);
         method.setAccessible(true);
         method.invoke(activity, e);
         
-        // 2. Click "Yes"
         AlertDialog confirmDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         confirmDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         shadowOf(Looper.getMainLooper()).idle();
 
-        // 3. Verify final Success dialog
         AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(resultDialog);
         assertEquals("Success", shadowOf(resultDialog).getTitle());
@@ -810,6 +807,46 @@ public class BrowseEventsActivityRobolectricTest {
         assertEquals("TestMessage", shadowOf(dialog).getMessage());
     }
 
+    @Test
+    public void reserveEvent_withNullEmail_fallsBackToAuthService() throws Exception {
+        Event e = event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 10, 5);
+        authRepository.signedInEmail = "fallback@test.com";
+        BrowseEventsActivity activity = launch(); // launch with customer@example.com initially
+
+        // Clear intent extra email to force fallback
+        activity.getIntent().removeExtra(BrowseEventsActivity.EXTRA_USER_EMAIL);
+
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("reserveEvent", Event.class);
+        method.setAccessible(true);
+        method.invoke(activity, e);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // Verify successful reservation via fallback email
+        AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(resultDialog);
+        assertEquals("Success", shadowOf(resultDialog).getTitle());
+    }
+
+    @Test
+    public void reserveEvent_whenEmailEmpty_showsErrorDialog() throws Exception {
+        Event e = event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 10, 5);
+        BrowseEventsActivity activity = launch();
+        
+        // Wipe all email sources
+        activity.getIntent().removeExtra(BrowseEventsActivity.EXTRA_USER_EMAIL);
+        authRepository.signedInEmail = null;
+
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("reserveEvent", Event.class);
+        method.setAccessible(true);
+        method.invoke(activity, e);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(resultDialog);
+        assertEquals("Error", shadowOf(resultDialog).getTitle());
+        assertEquals("User email is null or blank", shadowOf(resultDialog).getMessage());
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private BrowseEventsActivity launch() {
@@ -839,10 +876,11 @@ public class BrowseEventsActivityRobolectricTest {
 
     private static final class FakeAuthRepository implements AuthRepository {
         boolean signedIn = true;
+        String signedInEmail = "customer@example.com";
         @Override public void signIn(String id, String pw, AuthCallback cb) {}
         @Override public void register(String e, String p, String pw, AuthCallback cb) {}
         @Override public boolean isSignedIn() { return signedIn; }
-        @Override public String getSignedInEmail() { return "customer@example.com"; }
+        @Override public String getSignedInEmail() { return signedInEmail; }
         @Override public UserRole getSignedInRole() { return UserRole.CUSTOMER; }
         @Override public void signOut() { signedIn = false; }
     }

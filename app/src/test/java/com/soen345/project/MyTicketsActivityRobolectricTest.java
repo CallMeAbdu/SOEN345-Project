@@ -94,6 +94,48 @@ public class MyTicketsActivityRobolectricTest {
     }
 
     @Test
+    public void loadMyTickets_handlesReservationError() {
+        reservationRepository.loadError = "Database unreachable";
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("Error loading tickets: Database unreachable", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void fetchEvents_handlesEventError() {
+        reservationRepository.add(new Reservation("r1", "d1", "customer@example.com", System.currentTimeMillis()));
+        eventRepository.loadError = "Network error";
+        
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("Error loading event details: Network error", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
+    public void cancelReservation_handlesError() {
+        Event event = new Event("d1", "e1", "Jazz Night", "Music", "Montreal", System.currentTimeMillis(), EventStatus.ACTIVE, 100, 50);
+        eventRepository.add(event);
+        Reservation res = new Reservation("r1", "d1", "customer@example.com", System.currentTimeMillis());
+        reservationRepository.add(res);
+
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        reservationRepository.cancelError = "Delete forbidden";
+
+        View ticketView = ((LinearLayout) activity.findViewById(R.id.ticketsContainer)).getChildAt(0);
+        ticketView.findViewById(R.id.browseEventReserveButton).performClick();
+
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("Failed to cancel: Delete forbidden", ShadowToast.getTextOfLatestToast());
+    }
+
+    @Test
     public void emptyReservations_showsEmptyText() {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
         shadowOf(Looper.getMainLooper()).idle();
@@ -195,7 +237,7 @@ public class MyTicketsActivityRobolectricTest {
         assertEquals("Target", result.getTitle());
         
         Event notFound = (Event) method.invoke(activity, "unknown", events);
-        assertNull(notFound);
+        assertTrue(notFound == null);
     }
 
     @Test
@@ -216,10 +258,6 @@ public class MyTicketsActivityRobolectricTest {
         assertEquals(0, container.getChildCount());
     }
 
-    private void assertNull(Object obj) {
-        assertTrue(obj == null);
-    }
-
     private MyTicketsActivity launch(String email, String role) {
         Intent intent = MyTicketsActivity.newIntent(
                 ApplicationProvider.getApplicationContext(), email, role);
@@ -238,8 +276,14 @@ public class MyTicketsActivityRobolectricTest {
             cb.onSuccess(new AuthSession(e, UserRole.CUSTOMER));
         }
         @Override public boolean isSignedIn() { return signedIn; }
-        @Override public String getSignedInEmail() { return "customer@example.com"; }
-        @Override public UserRole getSignedInRole() { return UserRole.CUSTOMER; }
+        @Override public String getSignedInEmail() { return findSignedInEmail(); }
+        
+        private String findSignedInEmail() {
+            if (signedInEmail != null) return signedInEmail;
+            return signedIn ? "customer@example.com" : null;
+        }
+        
+        @Override public UserRole getSignedInRole() { return signedInRole; }
         @Override public void signOut() {
             signedIn = false;
             signedInEmail = null;
@@ -249,8 +293,12 @@ public class MyTicketsActivityRobolectricTest {
 
     private static final class FakeEventRepository implements EventRepository {
         private final List<Event> events = new ArrayList<>();
+        String loadError = null;
         void add(Event e) { events.add(e); }
-        @Override public void loadEvents(EventListCallback cb) { cb.onSuccess(new ArrayList<>(events)); }
+        @Override public void loadEvents(EventListCallback cb) { 
+            if (loadError != null) { cb.onError(loadError); } 
+            else { cb.onSuccess(new ArrayList<>(events)); }
+        }
         @Override public EventListenerHandle listenToEvents(EventListCallback cb) { return () -> {}; }
         @Override public void createEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
         @Override public void updateEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
@@ -259,16 +307,24 @@ public class MyTicketsActivityRobolectricTest {
 
     private static final class FakeReservationRepository implements ReservationRepository {
         private final List<Reservation> reservations = new ArrayList<>();
+        String loadError = null;
+        String cancelError = null;
         void add(Reservation r) { reservations.add(r); }
         @Override public void createReservation(Reservation r, ReservationActionCallback cb) { cb.onSuccess(); }
         @Override public void cancelReservation(String id, ReservationActionCallback cb) {
-            reservations.removeIf(r -> r.getDocumentId().equals(id));
-            cb.onSuccess();
+            if (cancelError != null) { cb.onError(cancelError); }
+            else {
+                reservations.removeIf(r -> r.getDocumentId().equals(id));
+                cb.onSuccess();
+            }
         }
         @Override public void getReservationsForUser(String email, ReservationListCallback cb) {
-            List<Reservation> userRes = new ArrayList<>();
-            for(Reservation r : reservations) if(r.getUserEmail().equals(email)) userRes.add(r);
-            cb.onSuccess(userRes);
+            if (loadError != null) { cb.onError(loadError); }
+            else {
+                List<Reservation> userRes = new ArrayList<>();
+                for(Reservation r : reservations) if(r.getUserEmail().equals(email)) userRes.add(r);
+                cb.onSuccess(userRes);
+            }
         }
     }
 }
