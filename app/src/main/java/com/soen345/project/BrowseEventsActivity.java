@@ -1,5 +1,6 @@
 package com.soen345.project;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -10,7 +11,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -34,7 +34,9 @@ import com.soen345.project.event.Event;
 import com.soen345.project.event.EventListCallback;
 import com.soen345.project.event.EventService;
 import com.soen345.project.event.EventServiceProvider;
-import com.soen345.project.event.EventStatus;
+import com.soen345.project.reservation.ReservationRepository;
+import com.soen345.project.reservation.ReservationService;
+import com.soen345.project.reservation.ReservationServiceProvider;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -74,6 +76,8 @@ public class BrowseEventsActivity extends AppCompatActivity {
     // Services
     private AuthService authService;
     private EventService eventService;
+    private ReservationService reservationService;
+
 
     // Views
     private MaterialToolbar browseToolbar;
@@ -108,6 +112,8 @@ public class BrowseEventsActivity extends AppCompatActivity {
 
         authService = AuthServiceProvider.getAuthService();
         eventService = EventServiceProvider.getEventService();
+        reservationService = ReservationServiceProvider.getReservationService();
+
 
         bindViews();
         setupToolbar();
@@ -569,7 +575,9 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 reserveButton.setVisibility(View.GONE);
             } else {
                 reserveButton.setVisibility(View.VISIBLE);
-                reserveButton.setOnClickListener(null); // TODO: implement reservation
+                reserveButton.setOnClickListener(v -> {
+                    showReserveConfirmation(event);
+                });
             }
 
             browseEventsContainer.addView(itemView);
@@ -619,6 +627,50 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 initial.get(Calendar.DAY_OF_MONTH)
         ).show();
     }
+
+    // -------------------------------------------------------------------------
+    // Reservations
+    // -------------------------------------------------------------------------
+    private void showReserveConfirmation(Event e){
+        String title = isNullOrBlank(e.getTitle())
+                ? getString(R.string.home_event_untitled) : e.getTitle();
+
+        new AlertDialog.Builder(this)
+                .setTitle("Confirm Reservation")
+                .setMessage("Are you sure you want to reserve " + title + "?")
+                .setPositiveButton("Yes", (dialog, which) -> reserveEvent(e))
+                .setNegativeButton("No", null)
+                .show();
+    }
+    private void reserveEvent(Event e){
+        String userEmail = getIntent().getStringExtra(EXTRA_USER_EMAIL);
+        if (isNullOrBlank(userEmail)) {
+            userEmail = authService.getSignedInEmail();
+        }
+        if (isNullOrBlank(userEmail)) {
+            showResultDialog("Error", "User email is null or blank");
+            return;
+        }
+        reservationService.reserveTicket(e, userEmail, new ReservationRepository.ReservationActionCallback() {
+            @Override
+            public void onSuccess() {
+                showResultDialog("Success", "BOOKED");
+            }
+            @Override
+            public void onError(String errorMessage) {
+                showResultDialog("Error", "Reservation failed: " + errorMessage);
+            }
+        });
+    }
+
+    private void showResultDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
 
     // -------------------------------------------------------------------------
     // Utilities

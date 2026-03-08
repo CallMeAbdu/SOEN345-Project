@@ -18,32 +18,34 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Placeholder content -->
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginBottom="64dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/tickets_placeholder_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/tickets_placeholder_subtitle"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:paddingHorizontal="32dp" />
+            <TextView
+                android:id="@+id/ticketsEmptyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No tickets reserved yet."
+                android:gravity="center"
+                android:layout_marginTop="32dp"
+                android:visibility="gone" />
 
-    </LinearLayout>
+            <LinearLayout
+                android:id="@+id/ticketsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/ticketsBottomNav"

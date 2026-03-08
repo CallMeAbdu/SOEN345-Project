@@ -1,10 +1,16 @@
 package com.soen345.project;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,6 +22,19 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
+import com.soen345.project.event.Event;
+import com.soen345.project.event.EventListCallback;
+import com.soen345.project.event.EventService;
+import com.soen345.project.event.EventServiceProvider;
+import com.soen345.project.reservation.Reservation;
+import com.soen345.project.reservation.ReservationRepository;
+import com.soen345.project.reservation.ReservationService;
+import com.soen345.project.reservation.ReservationServiceProvider;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class MyTicketsActivity extends AppCompatActivity {
 
@@ -23,8 +42,13 @@ public class MyTicketsActivity extends AppCompatActivity {
     public static final String EXTRA_USER_ROLE = "extra_user_role";
 
     private AuthService authService;
+    private ReservationService reservationService;
+    private EventService eventService;
+
     private MaterialToolbar toolbar;
     private BottomNavigationView bottomNav;
+    private LinearLayout ticketsContainer;
+    private TextView ticketsEmptyText;
 
     public static Intent newIntent(Context context, String userEmail, String role) {
         Intent intent = new Intent(context, MyTicketsActivity.class);
@@ -40,9 +64,13 @@ public class MyTicketsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_my_tickets);
 
         authService = AuthServiceProvider.getAuthService();
+        reservationService = ReservationServiceProvider.getReservationService();
+        eventService = EventServiceProvider.getEventService();
 
         toolbar = findViewById(R.id.ticketsToolbar);
         bottomNav = findViewById(R.id.ticketsBottomNav);
+        ticketsContainer = findViewById(R.id.ticketsContainer);
+        ticketsEmptyText = findViewById(R.id.ticketsEmptyText);
 
         setupToolbar();
         setupBottomNav();
@@ -59,7 +87,103 @@ public class MyTicketsActivity extends AppCompatActivity {
         super.onStart();
         if (!authService.isSignedIn()) {
             goToAuth();
+        } else {
+            loadMyTickets();
         }
+    }
+
+    private void loadMyTickets() {
+        String userEmail = authService.getSignedInEmail();
+        if (userEmail == null) return;
+
+        ticketsEmptyText.setVisibility(View.GONE);
+        ticketsContainer.removeAllViews();
+
+        reservationService.getMyReservations(userEmail, new ReservationRepository.ReservationListCallback() {
+            @Override
+            public void onSuccess(List<Reservation> reservations) {
+                if (reservations.isEmpty()) {
+                    ticketsEmptyText.setVisibility(View.VISIBLE);
+                    return;
+                }
+                fetchEventsAndRender(reservations);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(MyTicketsActivity.this, "Error loading tickets: " + errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void fetchEventsAndRender(List<Reservation> reservations) {
+        eventService.loadEvents(new EventListCallback() {
+            @Override
+            public void onSuccess(List<Event> allEvents) {
+                renderTickets(reservations, allEvents);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(MyTicketsActivity.this, "Error loading event details: " + errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void renderTickets(List<Reservation> reservations, List<Event> allEvents) {
+        ticketsContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        for (Reservation res : reservations) {
+            Event event = findEventById(res.getEventId(), allEvents);
+            if (event == null) continue;
+
+            View itemView = inflater.inflate(R.layout.item_browse_event, ticketsContainer, false);
+            TextView titleText = itemView.findViewById(R.id.browseEventItemTitle);
+            TextView detailsText = itemView.findViewById(R.id.browseEventItemDetails);
+            android.widget.Button cancelButton = itemView.findViewById(R.id.browseEventReserveButton);
+
+            titleText.setText(event.getTitle());
+            String when = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(new Date(event.getDateTimeMillis()));
+            detailsText.setText("When: " + when + "\nLocation: " + event.getLocation() + "\nReserved on: " +
+                    new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(res.getReservedAt())));
+
+            cancelButton.setText("Cancel Reservation");
+            cancelButton.setOnClickListener(v -> showCancelConfirmation(res, event));
+
+            ticketsContainer.addView(itemView);
+        }
+    }
+
+    private void showCancelConfirmation(Reservation res, Event event) {
+        new AlertDialog.Builder(this)
+                .setTitle("Cancel Reservation")
+                .setMessage("Are you sure you want to cancel your reservation for " + event.getTitle() + "?")
+                .setPositiveButton("Yes, Cancel", (dialog, which) -> cancelReservation(res, event))
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void cancelReservation(Reservation res, Event event) {
+        reservationService.cancelReservation(res, event, new ReservationRepository.ReservationActionCallback() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(MyTicketsActivity.this, "Reservation cancelled", Toast.LENGTH_SHORT).show();
+                loadMyTickets(); // Reload list
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Toast.makeText(MyTicketsActivity.this, "Failed to cancel: " + errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private Event findEventById(String eventId, List<Event> allEvents) {
+        for (Event e : allEvents) {
+            if (e.getDocumentId().equals(eventId)) return e;
+        }
+        return null;
     }
 
     private void setupToolbar() {
@@ -77,7 +201,6 @@ public class MyTicketsActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_browse_events, menu);
-        // Purple sign out — same as BrowseEventsActivity
         MenuItem signOutItem = menu.findItem(R.id.action_sign_out);
         if (signOutItem != null) {
             android.util.TypedValue typedValue = new android.util.TypedValue();
