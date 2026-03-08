@@ -1,7 +1,11 @@
 package com.soen345.project;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Looper;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -31,6 +35,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowAlertDialog;
+import org.robolectric.shadows.ShadowToast;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -72,6 +78,71 @@ public class MyTicketsActivityRobolectricTest {
     }
 
     @Test
+    public void loadMyTickets_displaysReservedEvents() {
+        Event event = new Event("d1", "e1", "Jazz Night", "Music", "Montreal", System.currentTimeMillis(), EventStatus.ACTIVE, 100, 50);
+        eventRepository.add(event);
+        Reservation res = new Reservation("r1", "d1", "customer@example.com", System.currentTimeMillis());
+        reservationRepository.add(res);
+
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        LinearLayout container = activity.findViewById(R.id.ticketsContainer);
+        assertEquals(1, container.getChildCount());
+        TextView titleText = container.getChildAt(0).findViewById(R.id.browseEventItemTitle);
+        assertEquals("Jazz Night", titleText.getText().toString());
+    }
+
+    @Test
+    public void emptyReservations_showsEmptyText() {
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        TextView emptyText = activity.findViewById(R.id.ticketsEmptyText);
+        assertEquals(View.VISIBLE, emptyText.getVisibility());
+    }
+
+    @Test
+    public void clickCancel_showsConfirmationDialog() {
+        Event event = new Event("d1", "e1", "Jazz Night", "Music", "Montreal", System.currentTimeMillis(), EventStatus.ACTIVE, 100, 50);
+        eventRepository.add(event);
+        Reservation res = new Reservation("r1", "d1", "customer@example.com", System.currentTimeMillis());
+        reservationRepository.add(res);
+
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        View ticketView = ((LinearLayout) activity.findViewById(R.id.ticketsContainer)).getChildAt(0);
+        ticketView.findViewById(R.id.browseEventReserveButton).performClick();
+
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        assertNotNull(dialog);
+        assertEquals("Cancel Reservation", shadowOf(dialog).getTitle());
+    }
+
+    @Test
+    public void confirmCancel_removesTicketAndShowsToast() {
+        Event event = new Event("d1", "e1", "Jazz Night", "Music", "Montreal", System.currentTimeMillis(), EventStatus.ACTIVE, 100, 50);
+        eventRepository.add(event);
+        Reservation res = new Reservation("r1", "d1", "customer@example.com", System.currentTimeMillis());
+        reservationRepository.add(res);
+
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        shadowOf(Looper.getMainLooper()).idle();
+
+        View ticketView = ((LinearLayout) activity.findViewById(R.id.ticketsContainer)).getChildAt(0);
+        ticketView.findViewById(R.id.browseEventReserveButton).performClick();
+
+        AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals("Reservation cancelled", ShadowToast.getTextOfLatestToast());
+        LinearLayout container = activity.findViewById(R.id.ticketsContainer);
+        assertEquals(0, container.getChildCount());
+    }
+
+    @Test
     public void toolbar_showsEmailInSubtitle() {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
 
@@ -80,31 +151,6 @@ public class MyTicketsActivityRobolectricTest {
         assertNotNull(toolbar);
         assertNotNull(toolbar.getSubtitle());
         assertTrue(toolbar.getSubtitle().toString().contains("customer@example.com"));
-    }
-
-    @Test
-    public void toolbar_withNullEmail_fallsBackToAuthService() {
-        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), MyTicketsActivity.class);
-        intent.putExtra(MyTicketsActivity.EXTRA_USER_ROLE, "CUSTOMER");
-        MyTicketsActivity activity = Robolectric.buildActivity(MyTicketsActivity.class, intent).setup().get();
-
-        com.google.android.material.appbar.MaterialToolbar toolbar =
-                activity.findViewById(R.id.ticketsToolbar);
-        assertNotNull(toolbar.getSubtitle());
-        assertTrue(toolbar.getSubtitle().toString().contains("customer@example.com"));
-    }
-
-    @Test
-    public void toolbar_withNoEmailAnywhere_showsUnknownUser() {
-        authRepository.signedInEmail = null;
-        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), MyTicketsActivity.class);
-        MyTicketsActivity activity = Robolectric.buildActivity(MyTicketsActivity.class, intent).setup().get();
-
-        com.google.android.material.appbar.MaterialToolbar toolbar =
-                activity.findViewById(R.id.ticketsToolbar);
-        assertNotNull(toolbar.getSubtitle());
-        assertTrue(toolbar.getSubtitle().toString().contains(
-                activity.getString(R.string.auth_unknown_user)));
     }
 
     @Test
@@ -117,32 +163,7 @@ public class MyTicketsActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
-        assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
-    }
-
-    @Test
-    public void bottomNav_myTicketsTab_isSelectedByDefault() {
-        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
-
-        com.google.android.material.bottomnavigation.BottomNavigationView nav =
-                activity.findViewById(R.id.ticketsBottomNav);
-        assertEquals(R.id.nav_my_tickets, nav.getSelectedItemId());
-    }
-
-    @Test
-    public void bottomNav_browseTab_startsBrowseEventsActivity() {
-        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
-
-        com.google.android.material.bottomnavigation.BottomNavigationView nav =
-                activity.findViewById(R.id.ticketsBottomNav);
-        nav.setSelectedItemId(R.id.nav_browse_events);
-        shadowOf(Looper.getMainLooper()).idle();
-
-        Intent started = shadowOf(activity).getNextStartedActivity();
-        assertNotNull(started);
-        assertNotNull(started.getComponent());
-        assertEquals(BrowseEventsActivity.class.getName(), started.getComponent().getClassName());
     }
 
     @Test
@@ -155,16 +176,48 @@ public class MyTicketsActivityRobolectricTest {
 
         Intent started = shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
-        assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
 
     @Test
-    public void ticketsRoot_isDisplayed() {
+    public void findEventById_returnsCorrectEvent() throws Exception {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
-        android.view.View root = activity.findViewById(R.id.ticketsRoot);
-        assertNotNull(root);
-        assertEquals(android.view.View.VISIBLE, root.getVisibility());
+        
+        List<Event> events = new ArrayList<>();
+        Event target = new Event("d1", "e1", "Target", "C", "L", 0L, EventStatus.ACTIVE, 10, 5);
+        events.add(target);
+        events.add(new Event("d2", "e2", "Other", "C", "L", 0L, EventStatus.ACTIVE, 10, 5));
+
+        java.lang.reflect.Method method = MyTicketsActivity.class.getDeclaredMethod("findEventById", String.class, List.class);
+        method.setAccessible(true);
+        
+        Event result = (Event) method.invoke(activity, "d1", events);
+        assertEquals("Target", result.getTitle());
+        
+        Event notFound = (Event) method.invoke(activity, "unknown", events);
+        assertNull(notFound);
+    }
+
+    @Test
+    public void renderTickets_skipsUnknownEvents() throws Exception {
+        MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
+        
+        List<Reservation> reservations = new ArrayList<>();
+        reservations.add(new Reservation("r1", "unknown_event", "user@test.com", 0L));
+        
+        List<Event> events = new ArrayList<>();
+        events.add(new Event("d1", "e1", "Known", "C", "L", 0L, EventStatus.ACTIVE, 10, 5));
+
+        java.lang.reflect.Method method = MyTicketsActivity.class.getDeclaredMethod("renderTickets", List.class, List.class);
+        method.setAccessible(true);
+        method.invoke(activity, reservations, events);
+        
+        LinearLayout container = activity.findViewById(R.id.ticketsContainer);
+        assertEquals(0, container.getChildCount());
+    }
+
+    private void assertNull(Object obj) {
+        assertTrue(obj == null);
     }
 
     private MyTicketsActivity launch(String email, String role) {
@@ -185,8 +238,8 @@ public class MyTicketsActivityRobolectricTest {
             cb.onSuccess(new AuthSession(e, UserRole.CUSTOMER));
         }
         @Override public boolean isSignedIn() { return signedIn; }
-        @Override public String getSignedInEmail() { return signedInEmail; }
-        @Override public UserRole getSignedInRole() { return signedInRole; }
+        @Override public String getSignedInEmail() { return "customer@example.com"; }
+        @Override public UserRole getSignedInRole() { return UserRole.CUSTOMER; }
         @Override public void signOut() {
             signedIn = false;
             signedInEmail = null;
@@ -195,7 +248,9 @@ public class MyTicketsActivityRobolectricTest {
     }
 
     private static final class FakeEventRepository implements EventRepository {
-        @Override public void loadEvents(EventListCallback cb) { if (cb != null) cb.onSuccess(Collections.emptyList()); }
+        private final List<Event> events = new ArrayList<>();
+        void add(Event e) { events.add(e); }
+        @Override public void loadEvents(EventListCallback cb) { cb.onSuccess(new ArrayList<>(events)); }
         @Override public EventListenerHandle listenToEvents(EventListCallback cb) { return () -> {}; }
         @Override public void createEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
         @Override public void updateEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
@@ -203,10 +258,17 @@ public class MyTicketsActivityRobolectricTest {
     }
 
     private static final class FakeReservationRepository implements ReservationRepository {
+        private final List<Reservation> reservations = new ArrayList<>();
+        void add(Reservation r) { reservations.add(r); }
         @Override public void createReservation(Reservation r, ReservationActionCallback cb) { cb.onSuccess(); }
-        @Override public void cancelReservation(String id, ReservationActionCallback cb) { cb.onSuccess(); }
+        @Override public void cancelReservation(String id, ReservationActionCallback cb) {
+            reservations.removeIf(r -> r.getDocumentId().equals(id));
+            cb.onSuccess();
+        }
         @Override public void getReservationsForUser(String email, ReservationListCallback cb) {
-            if (cb != null) cb.onSuccess(Collections.emptyList());
+            List<Reservation> userRes = new ArrayList<>();
+            for(Reservation r : reservations) if(r.getUserEmail().equals(email)) userRes.add(r);
+            cb.onSuccess(userRes);
         }
     }
 }

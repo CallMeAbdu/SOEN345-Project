@@ -1,5 +1,6 @@
 package com.soen345.project;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Looper;
@@ -35,6 +36,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowAlertDialog;
 import org.robolectric.shadows.ShadowDialog;
 
 import java.util.ArrayList;
@@ -735,6 +737,79 @@ public class BrowseEventsActivityRobolectricTest {
         );
     }
 
+    @Test
+    public void showReserveConfirmation_opensDialog() {
+        Event e = event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 10, 5);
+        eventRepository.add(e);
+        BrowseEventsActivity activity = launch();
+        
+        View card = container(activity).getChildAt(0);
+        card.findViewById(R.id.browseEventReserveButton).performClick();
+        
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(dialog);
+        assertEquals("Confirm Reservation", shadowOf(dialog).getTitle());
+        assertTrue(shadowOf(dialog).getMessage().toString().contains("Concert"));
+    }
+
+    @Test
+    public void confirmReservation_success_showsBookedDialog() throws Exception {
+        Event e = event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 10, 5);
+        eventRepository.add(e);
+        BrowseEventsActivity activity = launch();
+
+        // 1. Trigger confirmation dialog
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("showReserveConfirmation", Event.class);
+        method.setAccessible(true);
+        method.invoke(activity, e);
+        
+        // 2. Click "Yes"
+        AlertDialog confirmDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        confirmDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        // 3. Verify final Success dialog
+        AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(resultDialog);
+        assertEquals("Success", shadowOf(resultDialog).getTitle());
+        assertEquals("BOOKED", shadowOf(resultDialog).getMessage());
+    }
+
+    @Test
+    public void confirmReservation_error_showsErrorDialog() throws Exception {
+        Event e = event("d1", "Concert", EventStatus.ACTIVE, futureMillis, 10, 5);
+        eventRepository.add(e);
+        reservationRepository.forcedError = "Database Busy";
+        BrowseEventsActivity activity = launch();
+
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("showReserveConfirmation", Event.class);
+        method.setAccessible(true);
+        method.invoke(activity, e);
+        
+        AlertDialog confirmDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        confirmDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(resultDialog);
+        assertEquals("Error", shadowOf(resultDialog).getTitle());
+        assertTrue(shadowOf(resultDialog).getMessage().toString().contains("Database Busy"));
+    }
+
+    @Test
+    public void showResultDialog_displaysCorrectText() throws Exception {
+        BrowseEventsActivity activity = launch();
+        
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("showResultDialog", String.class, String.class);
+        method.setAccessible(true);
+        method.invoke(activity, "TestTitle", "TestMessage");
+        
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(dialog);
+        assertEquals("TestTitle", shadowOf(dialog).getTitle());
+        assertEquals("TestMessage", shadowOf(dialog).getMessage());
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private BrowseEventsActivity launch() {
@@ -805,7 +880,9 @@ public class BrowseEventsActivityRobolectricTest {
 
     private static final class FakeReservationRepository implements ReservationRepository {
         private final List<Reservation> reservations = new ArrayList<>();
+        String forcedError = null;
         @Override public void createReservation(Reservation r, ReservationActionCallback cb) {
+            if (forcedError != null) { cb.onError(forcedError); return; }
             reservations.add(r);
             cb.onSuccess();
         }
