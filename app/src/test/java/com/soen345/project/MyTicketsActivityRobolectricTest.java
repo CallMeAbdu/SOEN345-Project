@@ -11,6 +11,18 @@ import com.soen345.project.auth.AuthService;
 import com.soen345.project.auth.AuthServiceProvider;
 import com.soen345.project.auth.AuthSession;
 import com.soen345.project.auth.UserRole;
+import com.soen345.project.event.Event;
+import com.soen345.project.event.EventActionCallback;
+import com.soen345.project.event.EventListCallback;
+import com.soen345.project.event.EventListenerHandle;
+import com.soen345.project.event.EventRepository;
+import com.soen345.project.event.EventService;
+import com.soen345.project.event.EventServiceProvider;
+import com.soen345.project.event.EventStatus;
+import com.soen345.project.reservation.Reservation;
+import com.soen345.project.reservation.ReservationRepository;
+import com.soen345.project.reservation.ReservationService;
+import com.soen345.project.reservation.ReservationServiceProvider;
 
 import org.junit.After;
 import org.junit.Before;
@@ -19,6 +31,10 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -30,6 +46,8 @@ import static org.robolectric.Shadows.shadowOf;
 public class MyTicketsActivityRobolectricTest {
 
     private FakeAuthRepository authRepository;
+    private FakeEventRepository eventRepository;
+    private FakeReservationRepository reservationRepository;
 
     @Before
     public void setUp() {
@@ -37,15 +55,21 @@ public class MyTicketsActivityRobolectricTest {
         authRepository.signedIn = true;
         authRepository.signedInEmail = "customer@example.com";
         authRepository.signedInRole = UserRole.CUSTOMER;
+        
+        eventRepository = new FakeEventRepository();
+        reservationRepository = new FakeReservationRepository();
+
         AuthServiceProvider.setAuthServiceForTesting(new AuthService(authRepository));
+        EventServiceProvider.setEventServiceForTesting(new EventService(eventRepository));
+        ReservationServiceProvider.setReservationService(new ReservationService(reservationRepository, eventRepository));
     }
 
     @After
     public void tearDown() {
         AuthServiceProvider.clearAuthServiceForTesting();
+        EventServiceProvider.clearEventServiceForTesting();
+        ReservationServiceProvider.clearReservationService();
     }
-
-    // ── Toolbar ──────────────────────────────────────────────────────────────
 
     @Test
     public void toolbar_showsEmailInSubtitle() {
@@ -60,7 +84,6 @@ public class MyTicketsActivityRobolectricTest {
 
     @Test
     public void toolbar_withNullEmail_fallsBackToAuthService() {
-        // Launch without email extra — should fall back to authService.getSignedInEmail()
         Intent intent = new Intent(ApplicationProvider.getApplicationContext(), MyTicketsActivity.class);
         intent.putExtra(MyTicketsActivity.EXTRA_USER_ROLE, "CUSTOMER");
         MyTicketsActivity activity = Robolectric.buildActivity(MyTicketsActivity.class, intent).setup().get();
@@ -84,8 +107,6 @@ public class MyTicketsActivityRobolectricTest {
                 activity.getString(R.string.auth_unknown_user)));
     }
 
-    // ── Sign out ─────────────────────────────────────────────────────────────
-
     @Test
     public void signOut_viaMenu_navigatesToMain() {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
@@ -99,8 +120,6 @@ public class MyTicketsActivityRobolectricTest {
         assertNotNull(started.getComponent());
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
-
-    // ── Bottom nav ───────────────────────────────────────────────────────────
 
     @Test
     public void bottomNav_myTicketsTab_isSelectedByDefault() {
@@ -126,8 +145,6 @@ public class MyTicketsActivityRobolectricTest {
         assertEquals(BrowseEventsActivity.class.getName(), started.getComponent().getClassName());
     }
 
-    // ── onStart — unauthenticated redirect ───────────────────────────────────
-
     @Test
     public void onStart_whenNotSignedIn_redirectsToMain() {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
@@ -142,8 +159,6 @@ public class MyTicketsActivityRobolectricTest {
         assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
     }
 
-    // ── Root view ────────────────────────────────────────────────────────────
-
     @Test
     public void ticketsRoot_isDisplayed() {
         MyTicketsActivity activity = launch("customer@example.com", "CUSTOMER");
@@ -151,8 +166,6 @@ public class MyTicketsActivityRobolectricTest {
         assertNotNull(root);
         assertEquals(android.view.View.VISIBLE, root.getVisibility());
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
 
     private MyTicketsActivity launch(String email, String role) {
         Intent intent = MyTicketsActivity.newIntent(
@@ -178,6 +191,22 @@ public class MyTicketsActivityRobolectricTest {
             signedIn = false;
             signedInEmail = null;
             signedInRole = null;
+        }
+    }
+
+    private static final class FakeEventRepository implements EventRepository {
+        @Override public void loadEvents(EventListCallback cb) { if (cb != null) cb.onSuccess(Collections.emptyList()); }
+        @Override public EventListenerHandle listenToEvents(EventListCallback cb) { return () -> {}; }
+        @Override public void createEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
+        @Override public void updateEvent(Event e, EventActionCallback cb) { cb.onSuccess(); }
+        @Override public void updateStatus(String id, EventStatus s, EventActionCallback cb) { cb.onSuccess(); }
+    }
+
+    private static final class FakeReservationRepository implements ReservationRepository {
+        @Override public void createReservation(Reservation r, ReservationActionCallback cb) { cb.onSuccess(); }
+        @Override public void cancelReservation(String id, ReservationActionCallback cb) { cb.onSuccess(); }
+        @Override public void getReservationsForUser(String email, ReservationListCallback cb) {
+            if (cb != null) cb.onSuccess(Collections.emptyList());
         }
     }
 }
