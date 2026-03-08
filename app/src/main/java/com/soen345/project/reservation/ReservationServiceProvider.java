@@ -7,6 +7,8 @@ public class ReservationServiceProvider
 {
     private static ReservationService reservationServiceForTesting;
 
+    private ReservationServiceProvider() {}
+
     public static ReservationService getReservationService()
     {
         if (reservationServiceForTesting != null) {
@@ -15,15 +17,15 @@ public class ReservationServiceProvider
         ReservationRepository reservationRepository = new FirebaseReservationRepository();
         EventRepository eventRepository = new FirebaseEventRepository();
         return new ReservationService(reservationRepository, eventRepository);
-        }
+    }
 
     public static void setReservationService(ReservationService reservationService)
     {
         reservationServiceForTesting = reservationService;
     }
+
     public static void clearReservationService()
     {
         reservationServiceForTesting = null;
     }
-
 }

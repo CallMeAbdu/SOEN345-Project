@@ -1,7 +1,6 @@
 package com.soen345.project.reservation;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -63,6 +62,14 @@ public class ReservationServiceTest {
     }
 
     @Test
+    public void reserveTicket_withNullUserEmail_callsOnError() {
+        Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
+        TestActionCallback callback = mock(TestActionCallback.class);
+        service.reserveTicket(event, null, callback);
+        verify(callback).onError("Invalid user email.");
+    }
+
+    @Test
     public void reserveTicket_withEmptyUserEmail_callsOnError() {
         Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
         TestActionCallback callback = mock(TestActionCallback.class);
@@ -73,7 +80,6 @@ public class ReservationServiceTest {
     @Test
     public void reserveTicket_withNullCallback_returnsSafely() {
         Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
-        // Should not throw NPE
         service.reserveTicket(event, "user@test.com", null);
         verify(reservationRepository, never()).createReservation(any(), any());
     }
@@ -90,7 +96,7 @@ public class ReservationServiceTest {
     }
 
     @Test
-    public void reserveTicket_handlesReservationError() {
+    public void reserveTicket_handlesReservationRepositoryError() {
         Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
         ArgumentCaptor<ReservationRepository.ReservationActionCallback> callbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
         
@@ -102,6 +108,24 @@ public class ReservationServiceTest {
 
         assertEquals("Database Down", callback.error);
         verify(eventRepository, never()).updateEvent(any(), any());
+    }
+
+    @Test
+    public void reserveTicket_eventUpdateError_propagatesError() {
+        Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
+        ArgumentCaptor<ReservationRepository.ReservationActionCallback> resCallbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
+        ArgumentCaptor<EventActionCallback> eventCallbackCaptor = ArgumentCaptor.forClass(EventActionCallback.class);
+
+        TestActionCallback finalCallback = new TestActionCallback();
+        service.reserveTicket(event, "user@test.com", finalCallback);
+
+        verify(reservationRepository).createReservation(any(), resCallbackCaptor.capture());
+        resCallbackCaptor.getValue().onSuccess();
+
+        verify(eventRepository).updateEvent(any(), eventCallbackCaptor.capture());
+        eventCallbackCaptor.getValue().onError("Capacity update failed");
+
+        assertEquals("Capacity update failed", finalCallback.error);
     }
 
     @Test
@@ -143,7 +167,15 @@ public class ReservationServiceTest {
     }
 
     @Test
-    public void cancelReservation_handlesRepositoryError() {
+    public void cancelReservation_withNullCallback_returnsSafely() {
+        Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
+        Reservation res = new Reservation("res1", "doc1", "user@test.com", 123L);
+        service.cancelReservation(res, event, null);
+        verify(reservationRepository, never()).cancelReservation(anyString(), any());
+    }
+
+    @Test
+    public void cancelReservation_handlesReservationRepositoryError() {
         Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
         Reservation res = new Reservation("res1", "doc1", "user@test.com", 123L);
         ArgumentCaptor<ReservationRepository.ReservationActionCallback> callbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
@@ -155,6 +187,25 @@ public class ReservationServiceTest {
         callbackCaptor.getValue().onError("Delete Failed");
 
         assertEquals("Delete Failed", callback.error);
+    }
+
+    @Test
+    public void cancelReservation_eventUpdateError_propagatesError() {
+        Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
+        Reservation res = new Reservation("res1", "doc1", "user@test.com", 123L);
+        ArgumentCaptor<ReservationRepository.ReservationActionCallback> resCallbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
+        ArgumentCaptor<EventActionCallback> eventCallbackCaptor = ArgumentCaptor.forClass(EventActionCallback.class);
+
+        TestActionCallback finalCallback = new TestActionCallback();
+        service.cancelReservation(res, event, finalCallback);
+
+        verify(reservationRepository).cancelReservation(anyString(), resCallbackCaptor.capture());
+        resCallbackCaptor.getValue().onSuccess();
+
+        verify(eventRepository).updateEvent(any(), eventCallbackCaptor.capture());
+        eventCallbackCaptor.getValue().onError("Restore capacity failed");
+
+        assertEquals("Restore capacity failed", finalCallback.error);
     }
 
     @Test

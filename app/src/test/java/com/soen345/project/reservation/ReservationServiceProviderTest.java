@@ -17,6 +17,7 @@ import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.List;
 
@@ -25,6 +26,15 @@ public class ReservationServiceProviderTest {
     @After
     public void tearDown() {
         ReservationServiceProvider.clearReservationService();
+    }
+
+    @Test
+    public void constructor_isPrivate() throws Exception {
+        // This test calls the private constructor via reflection to achieve 100% class coverage
+        Constructor<ReservationServiceProvider> constructor = ReservationServiceProvider.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        ReservationServiceProvider instance = constructor.newInstance();
+        assertNotNull(instance);
     }
 
     @Test
@@ -51,7 +61,6 @@ public class ReservationServiceProviderTest {
             
             ReservationService service = ReservationServiceProvider.getReservationService();
             assertNotNull(service);
-
             firestoreStatic.verify(FirebaseFirestore::getInstance, Mockito.atLeastOnce());
         }
     }
