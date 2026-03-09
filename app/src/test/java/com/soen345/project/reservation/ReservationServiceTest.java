@@ -1,6 +1,7 @@
 package com.soen345.project.reservation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,6 +37,36 @@ public class ReservationServiceTest {
         eventRepository = mock(EventRepository.class);
         bookingConfirmationDispatcher = mock(BookingConfirmationDispatcher.class);
         service = new ReservationService(reservationRepository, eventRepository, bookingConfirmationDispatcher);
+    }
+
+    @Test
+    public void constructor_withNullReservationRepository_throws() {
+        try {
+            new ReservationService(null, eventRepository, bookingConfirmationDispatcher);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("reservationRepository cannot be null", e.getMessage());
+        }
+    }
+
+    @Test
+    public void constructor_withNullEventRepository_throws() {
+        try {
+            new ReservationService(reservationRepository, null, bookingConfirmationDispatcher);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("eventRepository cannot be null", e.getMessage());
+        }
+    }
+
+    @Test
+    public void constructor_withNullBookingDispatcher_throws() {
+        try {
+            new ReservationService(reservationRepository, eventRepository, null);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("bookingConfirmationDispatcher cannot be null", e.getMessage());
+        }
     }
 
     @Test

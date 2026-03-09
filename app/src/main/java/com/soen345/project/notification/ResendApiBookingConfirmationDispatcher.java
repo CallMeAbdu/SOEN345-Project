@@ -17,6 +17,10 @@ import java.util.concurrent.Executors;
 import javax.net.ssl.HttpsURLConnection;
 
 public class ResendApiBookingConfirmationDispatcher implements BookingConfirmationDispatcher {
+    interface ConnectionFactory {
+        HttpsURLConnection open() throws Exception;
+    }
+
     private static final String TAG = "ResendEmail";
     private static final String RESEND_SEND_URL = "https://api.resend.com/emails";
     private static final ExecutorService SHARED_EXECUTOR = Executors.newSingleThreadExecutor();
@@ -24,15 +28,36 @@ public class ResendApiBookingConfirmationDispatcher implements BookingConfirmati
     private final String apiKey;
     private final String fromEmail;
     private final ExecutorService executor;
+    private final ConnectionFactory connectionFactory;
 
     public ResendApiBookingConfirmationDispatcher(String apiKey, String fromEmail) {
-        this(apiKey, fromEmail, SHARED_EXECUTOR);
+        this(
+                apiKey,
+                fromEmail,
+                SHARED_EXECUTOR,
+                () -> (HttpsURLConnection) new URL(RESEND_SEND_URL).openConnection()
+        );
     }
 
     ResendApiBookingConfirmationDispatcher(String apiKey, String fromEmail, ExecutorService executor) {
+        this(
+                apiKey,
+                fromEmail,
+                executor,
+                () -> (HttpsURLConnection) new URL(RESEND_SEND_URL).openConnection()
+        );
+    }
+
+    ResendApiBookingConfirmationDispatcher(
+            String apiKey,
+            String fromEmail,
+            ExecutorService executor,
+            ConnectionFactory connectionFactory
+    ) {
         this.apiKey = safeString(apiKey);
         this.fromEmail = safeString(fromEmail);
         this.executor = executor;
+        this.connectionFactory = connectionFactory;
     }
 
     @Override
@@ -60,8 +85,7 @@ public class ResendApiBookingConfirmationDispatcher implements BookingConfirmati
     private void sendEmail(BookingConfirmationDetails details) {
         HttpsURLConnection connection = null;
         try {
-            URL url = new URL(RESEND_SEND_URL);
-            connection = (HttpsURLConnection) url.openConnection();
+            connection = connectionFactory.open();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(12000);
             connection.setReadTimeout(12000);
