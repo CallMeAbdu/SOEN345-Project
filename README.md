@@ -6,6 +6,48 @@ The system supports both customers and event administrators. Customers can searc
 
 Built in Java and designed for cloud deployment, the application supports concurrent users, prevents overbooking, and provides a simple and user-friendly experience.
 
+## Prerequisites
+
+- Android Studio (latest stable)
+- JDK 17 (recommended for Gradle/CI parity)
+- Android SDK + emulator image (API 34+ recommended)
+- Firebase project access (for Auth + Firestore)
+- Resend account + API key
+
+## 2. Configure `.env` for email confirmations
+
+From project root:
+
+```bash
+cp .env.example .env
+```
+
+Set values in `.env`:
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxx
+RESEND_FROM_EMAIL=<onboarding@resend.dev>
+```
+
+## 3. Run tests
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+## 4. Run app on emulator
+
+1. Open project in Android Studio.
+2. Open **Device Manager** and start an emulator.
+3. Click **Run** on `app` configuration.
+
+## 6. Useful commands
+
+```bash
+./gradlew clean
+./gradlew lintDebug
+./gradlew assembleDebug
+```
 
 ## Team
 
@@ -16,4 +58,3 @@ Built in Java and designed for cloud deployment, the application supports concur
 | Huu Khoa Kevin Tran     | 40283037  | [@hkevint](https://github.com/hkevint) |
 | Sofia Cimon             | 40282210  | [@sofiacimon](https://github.com/sofiacimon) |
 | Thi Hong Mai Nguyen     | 40248343  | [@miiyao7](https://github.com/miiyao7) |
-

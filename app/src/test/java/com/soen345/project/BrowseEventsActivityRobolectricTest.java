@@ -768,8 +768,14 @@ public class BrowseEventsActivityRobolectricTest {
 
         AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(resultDialog);
-        assertEquals("Success", shadowOf(resultDialog).getTitle());
-        assertEquals("BOOKED", shadowOf(resultDialog).getMessage());
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_title),
+                shadowOf(resultDialog).getTitle()
+        );
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_message, "Concert"),
+                shadowOf(resultDialog).getMessage()
+        );
     }
 
     @Test
@@ -824,7 +830,10 @@ public class BrowseEventsActivityRobolectricTest {
         // Verify successful reservation via fallback email
         AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(resultDialog);
-        assertEquals("Success", shadowOf(resultDialog).getTitle());
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_title),
+                shadowOf(resultDialog).getTitle()
+        );
     }
 
     @Test
