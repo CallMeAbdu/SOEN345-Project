@@ -1,5 +1,14 @@
 appId: com.soen345.project
 ---
+# Sign out if already signed in
+- runFlow:
+    when:
+      visible: "Sign Out"
+    commands:
+      - tapOn: "Sign Out"
+      - waitForAnimationToEnd
+      - assertVisible: "Sign In"
+
 - assertVisible: "Sign In"
 - tapOn:
     id: "emailInput"
@@ -9,3 +18,4 @@ appId: com.soen345.project
 - inputText: "${password}"
 - tapOn:
     id: "authButton"
+- waitForAnimationToEnd
