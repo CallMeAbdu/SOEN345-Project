@@ -1,0 +1,33 @@
+appId: com.soen345.project
+---
+#- clearState
+- launchApp
+- waitForAnimationToEnd
+- assertVisible: "Sign In"
+
+- runFlow:
+    file: login.yaml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+# --- Step 2: Browse & Reserve ---
+- waitForAnimationToEnd
+- assertVisible: "Browse Events"
+
+# Wait for the list to actually load from Firebase
+- extendedWaitUntil:
+    visible:
+        id: "browseEventReserveButton"
+    timeout: 15000
+
+- tapOn:
+    id: "browseEventReserveButton"
+
+# --- Step 3: Confirmation Dialog ---
+- assertVisible: "Confirm Reservation"
+- tapOn: "Yes"
+
+# --- Step 4: Success Dialog ---
+- assertVisible: "Success"
+- tapOn: "OK"

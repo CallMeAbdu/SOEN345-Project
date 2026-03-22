@@ -1,0 +1,11 @@
+appId: com.soen345.project
+---
+- assertVisible: "Sign In"
+- tapOn:
+    id: "emailInput"
+- inputText: "${email}"
+- tapOn:
+    id: "passwordInput"
+- inputText: "${password}"
+- tapOn:
+    id: "authButton"
