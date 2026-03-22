@@ -4,7 +4,7 @@ appId: com.soen345.project
 - waitForAnimationToEnd
 
 - runFlow:
-    file: login.yaml
+    file: login.yml
     env:
       email: "andy@test.com"
       password: "password123"
