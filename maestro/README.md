@@ -1,34 +1,14 @@
-# Installing & Using Maestro (E2E Mobile Testing)
+# Maestro End-to-End Testing Guide
 
-This guide explains how to install **Maestro**, set it up on your system, understand its configuration files, and run end-to-end (E2E) tests.
+This project uses **Maestro** for automated UI and End-to-End (E2E) testing. Maestro allows us to define test flows in simple YAML files that simulate real user interactions.
 
 ---
 
-## 1. Install Maestro
+## 1. Installation
 
 ### 🪟 Windows
-
-1. Download Maestro:
-   https://github.com/mobile-dev-inc/maestro/releases/latest/download/maestro.zip
-
-2. Unzip it to an **arbitrary location outside your project folder**, for example:
-   C:\tools\maestro
-
-You should end up with:
-C:\tools\maestro\bin\maestro.exe
-
----
-
-### 🍎 macOS
-
-Install using Homebrew-style script:
-
-```bash
-curl -fsSL "https://get.maestro.mobile.dev" | bash
-
-~/.maestro/bin
-```
-
+1. Download the latest Maestro binary: [Maestro Releases](https://github.com/mobile-dev-inc/maestro/releases).
+2. Extract the zip to a folder (e.g., `C:\Maestro`).
 ## 2. Add Maestro to PATH
 
 Maestro must be available globally from the command line.
@@ -68,91 +48,68 @@ Verify installation:
 ```bash
 maestro --version
 ```
+Restart your terminal and verify:
+   ```powershell
+   maestro --version
+   ```
 
-## 3. Maestro File Structure
 
-A typical project structure for Maestro E2E tests:
-
-```css
-project-root\/
-├── maestro\/
-│   ├── config.yml
-│   ├── flow.yml
-│   └── login.yml
-└── src\/
-```
-
-- maestro/: Contains Maestro test flows
-
-- config.yml: Optional global configuration
-
-- src/: Application source code
-
-## 4. Test File
-
-A test would be like the flow.yml file.
-
-```yaml
-appId: com.example.app
 ---
-- launchApp
-- assertVisible: "Login"
-- tapOn: "Login"
-- assertVisible: "Home"
-```
 
-- appId is the app package name (Android) or bundle ID (iOS)
+## 3. Project Structure
 
-- --- separates configuration from test steps
+Our tests are organized into directories within the `maestro/` folder:
 
-- Steps execute from top to bottom
+- **`common/`**: Reusable sub-flows (e.g., `login.yml`).
+- **`user/`**: Flows for the regular customer role (Browse, Reserve, Cancel).
+- **`admin/`**: Flows for the administrator role (Create, Edit, Cancel events).
+- **`complete/`**: Full end-to-end integration flows.
 
-- Assertions fail the test immediately if unmet
+---
 
-## 5. Running Test
-```
+## 4. Running Tests
 
-### Have your Emulator running
+### Prerequisites
+1. Start an Android Emulator.
+2. Ensure the app is installed on the emulator:
+   ```bash
+   ./gradlew installDebug
+   ```
 
-To run all flows inside the e2e folder from the /mobile directory:
-
+### Run a Single Flow
+To run a specific test file:
 ```bash
-maestro test maestro/
+maestro test maestro/user/reserve_event.yml
 ```
 
-Example output:
-
+### Run All Tests in a Directory
+To run all flows within a specific folder:
 ```bash
-Waiting for flows to complete...
-[Passed] flow (9s)
-
-1/1 Flow Passed in 9s
+maestro test maestro/admin/
 ```
 
-To run a single test from the /mobile directory:
-
+### Run with a Report
+To generate an HTML report after the tests:
 ```bash
-maestro test maestro/flow.yml
+maestro test maestro/ --format junit --output report.xml
 ```
 
-Example output:
+---
 
-```bash
-Running on Medium_Phone_API_36.1
+## 4. Useful Maestro Commands
 
- ║
- ║  > Flow: flow
+- **`maestro studio`**: Opens a web-based visual editor in your browser. It shows your emulator screen and lets you click elements to automatically generate YAML code.
+- **`maestro hierarchy`**: Dumps the current UI tree to the console (useful for finding `resource-ids`).
+- **`maestro record <flow>.yaml`**: Records a video of the test execution.
 
-Running on Medium_Phone_API_36.1
+---
 
- ║
- ║  > Flow: flow
- ║
- ║    +   Launch app "com.anonymous.mobile"
- ║    +   Tap on "Call /API/HEALTH"
- ║    +   Assert that "Result: OK" is visible
- ║
-```
+## 5. Troubleshooting
 
-If the example flow.yml did not complete succesfully it might because on the first time the app opens, there are some developper pop-up that the flow script is not designed to handle.
-Just click continue on the app and rerun the flow.
+- **"Device Offline"**: This usually happens if the emulator crashes or the ADB connection is lost. Try a **Cold Boot** of your emulator from the Device Manager or increase the emulator's ram to 6 GB and core to 8.
+- **"Config Section Required"**: Ensure every `.yml` file starts with:
+  ```yaml
+  appId: com.soen345.project
+  ---
+  ```
+- **Tests failing on Login**: Ensure the credentials used in the `env` block of your `runFlow` (in the test file) match a real user in your Firebase Authentication console.
