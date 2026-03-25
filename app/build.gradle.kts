@@ -31,8 +31,7 @@ fun escapeForBuildConfig(value: String): String {
 }
 
 val dotEnvValues = loadDotEnv(rootProject.file(".env"))
-val resendApiKey = dotEnvValues["RESEND_API_KEY"] ?: ""
-val resendFromEmail = dotEnvValues["RESEND_FROM_EMAIL"] ?: ""
+val mailRelayBaseUrl = dotEnvValues["MAIL_RELAY_BASE_URL"] ?: "http://10.0.2.2:8080"
 
 android {
     namespace = "com.soen345.project"
@@ -46,8 +45,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "RESEND_API_KEY", "\"${escapeForBuildConfig(resendApiKey)}\"")
-        buildConfigField("String", "RESEND_FROM_EMAIL", "\"${escapeForBuildConfig(resendFromEmail)}\"")
+        buildConfigField("String", "MAIL_RELAY_BASE_URL", "\"${escapeForBuildConfig(mailRelayBaseUrl)}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

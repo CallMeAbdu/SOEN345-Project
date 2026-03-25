@@ -4,7 +4,7 @@ import com.soen345.project.BuildConfig;
 import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.FirebaseEventRepository;
 import com.soen345.project.notification.BookingConfirmationDispatcher;
-import com.soen345.project.notification.ResendApiBookingConfirmationDispatcher;
+import com.soen345.project.notification.HttpBookingConfirmationDispatcher;
 
 public class ReservationServiceProvider
 {
@@ -20,9 +20,8 @@ public class ReservationServiceProvider
         ReservationRepository reservationRepository = new FirebaseReservationRepository();
         EventRepository eventRepository = new FirebaseEventRepository();
         BookingConfirmationDispatcher bookingConfirmationDispatcher =
-                new ResendApiBookingConfirmationDispatcher(
-                        BuildConfig.RESEND_API_KEY,
-                        BuildConfig.RESEND_FROM_EMAIL
+                new HttpBookingConfirmationDispatcher(
+                        BuildConfig.MAIL_RELAY_BASE_URL
                 );
         return new ReservationService(
                 reservationRepository,
