@@ -9,6 +9,19 @@ This project uses **Maestro** for automated UI and End-to-End (E2E) testing. Mae
 ### 🪟 Windows
 1. Download the latest Maestro binary: [Maestro Releases](https://github.com/mobile-dev-inc/maestro/releases).
 2. Extract the zip to a folder (e.g., `C:\Maestro`).
+
+---
+
+### 🍎 macOS
+
+Install using Homebrew-style script:
+
+```bash
+curl -fsSL "https://get.maestro.mobile.dev" | bash
+
+~/.maestro/bin
+```
+
 ## 2. Add Maestro to PATH
 
 Maestro must be available globally from the command line.
