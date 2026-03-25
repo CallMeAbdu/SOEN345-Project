@@ -1,6 +1,9 @@
 appId: com.soen345.project
 ---
-# Sign out if already signed in
+- clearState
+- launchApp
+- waitForAnimationToEnd
+# Sign out if already signed in (added when - clearState would crash the app. Not necessary anymore)
 - runFlow:
     when:
       visible: "Sign Out"

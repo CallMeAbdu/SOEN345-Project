@@ -1,0 +1,36 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+# 2. Reserve an event first (to ensure we have something to cancel)
+- waitForAnimationToEnd
+- assertVisible: "Browse Events"
+- extendedWaitUntil:
+    visible:
+        id: "browseEventReserveButton"
+    timeout: 10000
+
+# Reserve the first available event
+- tapOn:
+    id: "browseEventReserveButton"
+- tapOn: "Yes"
+- tapOn: "OK"
+
+# 3. Navigate to "My Tickets"
+- tapOn:
+    id: "nav_my_tickets"
+- waitForAnimationToEnd
+- assertVisible: "My Tickets"
+
+# 4. Cancel the reservation
+# In MyTicketsActivity, the reserve button's text is changed to "Cancel Reservation"
+- tapOn: "Cancel Reservation"
+- assertVisible: "Cancel Reservation"
+- tapOn: "Yes, Cancel"
+
+# 5. Verify it is gone (Success message or empty state)
+- assertVisible: "Reservation cancelled"

@@ -1,15 +1,11 @@
 appId: com.soen345.project
 ---
-- launchApp
-- waitForAnimationToEnd
-
 - runFlow:
-    file: login.yml
+    file: ../common/login.yml
     env:
       email: "andy@test.com"
       password: "password123"
 
-- waitForAnimationToEnd
 - assertVisible: "Browse Events"
 
 - extendedWaitUntil:

@@ -1,0 +1,21 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+- tapOn:
+    text: "Cancel Event"
+    below: "Test Edited Title"
+
+- tapOn: "Cancel Event"
+
+- assertVisible: "Cancelled"
+
+- tapOn:
+    text: "Activate Event"
+    below: "Test Edited Title"
+
+- tapOn: "Activate Event"

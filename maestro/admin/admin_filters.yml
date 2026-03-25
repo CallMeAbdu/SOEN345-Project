@@ -1,0 +1,48 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+- assertVisible: "Event Management"
+- tapOn:
+    id: "homeFilterToggleChip"
+- assertVisible:
+    id: "homeFilterPanel"
+
+# 3. Test Category Filter
+- tapOn:
+    id: "homeCategoryFilterInput"
+- inputText: "Festival"
+- waitForAnimationToEnd
+# Verify the chip appears
+- assertVisible: "Festival"
+
+- tapOn:
+    id: "homeLocationFilterInput"
+- inputText: "Ile Jean-Drapeau"
+- waitForAnimationToEnd
+# Verify the chip appears
+- assertVisible: "Ile Jean-Drapeau"
+
+
+
+# 4. Test Status Filter (Spinner)
+- tapOn:
+    id: "homeStatusFilterSpinner"
+# Tapping a spinner usually opens a list of options. 
+# We'll select "Cancelled only"
+- tapOn: "Cancelled only"
+- waitForAnimationToEnd
+- assertVisible: "Cancelled only"
+
+# 5. Clear Filters
+- tapOn:
+    id: "homeClearFiltersButton"
+- waitForAnimationToEnd
+# Verify chips are gone
+- assertNotVisible: "Workshop"
+- assertNotVisible: "Cancelled only"
+- assertNotVisible: "Ile Jean-Drapeau"
