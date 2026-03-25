@@ -1,6 +1,6 @@
 # Maestro End-to-End Testing Guide
 
-This project uses **Maestro** for automated UI and End-to-End (E2E) testing. Maestro allows us to define test flows in simple YAML files that simulate real user interactions.
+This project uses **Maestro** for automated UI and End-to-End (E2E) testing. Maestro allows us to define test flows in simple YML files that simulate real user interactions.
 
 ---
 
