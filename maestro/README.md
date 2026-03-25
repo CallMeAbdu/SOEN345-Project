@@ -7,7 +7,7 @@ This project uses **Maestro** for automated UI and End-to-End (E2E) testing. Mae
 ## 1. Installation
 
 ### 🪟 Windows
-1. Download the latest Maestro binary: [Maestro Releases](https://github.com/mobile-dev-inc/maestro/releases).
+1. Download Maestro: https://github.com/mobile-dev-inc/maestro/releases/latest/download/maestro.zip).
 2. Extract the zip to a folder (e.g., `C:\Maestro`).
 
 ---
