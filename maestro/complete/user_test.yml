@@ -22,7 +22,7 @@ appId: com.soen345.project
 - assertVisible: "Confirm Reservation"
 - tapOn: "Yes"
 
-- assertVisible: "Success"
+- assertVisible: "Reservation Confirmed"
 - tapOn: "OK"
 
 # Filter Test
