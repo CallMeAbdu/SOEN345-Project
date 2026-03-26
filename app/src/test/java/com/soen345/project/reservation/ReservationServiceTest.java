@@ -1,9 +1,11 @@
 package com.soen345.project.reservation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,6 +14,8 @@ import com.soen345.project.event.Event;
 import com.soen345.project.event.EventActionCallback;
 import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.EventStatus;
+import com.soen345.project.notification.BookingConfirmationDetails;
+import com.soen345.project.notification.BookingConfirmationDispatcher;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -24,13 +28,45 @@ public class ReservationServiceTest {
 
     private ReservationRepository reservationRepository;
     private EventRepository eventRepository;
+    private BookingConfirmationDispatcher bookingConfirmationDispatcher;
     private ReservationService service;
 
     @Before
     public void setUp() {
         reservationRepository = mock(ReservationRepository.class);
         eventRepository = mock(EventRepository.class);
-        service = new ReservationService(reservationRepository, eventRepository);
+        bookingConfirmationDispatcher = mock(BookingConfirmationDispatcher.class);
+        service = new ReservationService(reservationRepository, eventRepository, bookingConfirmationDispatcher);
+    }
+
+    @Test
+    public void constructor_withNullReservationRepository_throws() {
+        try {
+            new ReservationService(null, eventRepository, bookingConfirmationDispatcher);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("reservationRepository cannot be null", e.getMessage());
+        }
+    }
+
+    @Test
+    public void constructor_withNullEventRepository_throws() {
+        try {
+            new ReservationService(reservationRepository, null, bookingConfirmationDispatcher);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("eventRepository cannot be null", e.getMessage());
+        }
+    }
+
+    @Test
+    public void constructor_withNullBookingDispatcher_throws() {
+        try {
+            new ReservationService(reservationRepository, eventRepository, null);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("bookingConfirmationDispatcher cannot be null", e.getMessage());
+        }
     }
 
     @Test
@@ -40,6 +76,7 @@ public class ReservationServiceTest {
         ArgumentCaptor<ReservationRepository.ReservationActionCallback> resCallbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
         ArgumentCaptor<EventActionCallback> eventCallbackCaptor = ArgumentCaptor.forClass(EventActionCallback.class);
         ArgumentCaptor<Event> updatedEventCaptor = ArgumentCaptor.forClass(Event.class);
+        ArgumentCaptor<BookingConfirmationDetails> confirmationCaptor = ArgumentCaptor.forClass(BookingConfirmationDetails.class);
 
         TestActionCallback finalCallback = new TestActionCallback();
         service.reserveTicket(event, "user@test.com", finalCallback);
@@ -52,6 +89,11 @@ public class ReservationServiceTest {
         eventCallbackCaptor.getValue().onSuccess();
 
         assertEquals(1, finalCallback.successCalls);
+        verify(bookingConfirmationDispatcher).dispatch(confirmationCaptor.capture());
+        assertEquals("user@test.com", confirmationCaptor.getValue().getRecipientEmail());
+        assertEquals("Title", confirmationCaptor.getValue().getEventTitle());
+        assertEquals("Loc", confirmationCaptor.getValue().getEventLocation());
+        assertEquals(1, confirmationCaptor.getValue().getTicketCount());
     }
 
     @Test
@@ -70,6 +112,7 @@ public class ReservationServiceTest {
         eventCallbackCaptor.getValue().onError("Capacity update failed");
 
         assertEquals("Capacity update failed", finalCallback.error);
+        verify(bookingConfirmationDispatcher, never()).dispatch(any());
     }
 
     @Test
@@ -100,6 +143,7 @@ public class ReservationServiceTest {
         Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
         service.reserveTicket(event, "user@test.com", null);
         verify(reservationRepository, never()).createReservation(any(), any());
+        verify(bookingConfirmationDispatcher, never()).dispatch(any());
     }
 
     @Test
@@ -111,6 +155,7 @@ public class ReservationServiceTest {
 
         assertEquals("Event is full.", callback.error);
         verify(reservationRepository, never()).createReservation(any(), any());
+        verify(bookingConfirmationDispatcher, never()).dispatch(any());
     }
 
     @Test
@@ -126,6 +171,28 @@ public class ReservationServiceTest {
 
         assertEquals("Database Down", callback.error);
         verify(eventRepository, never()).updateEvent(any(), any());
+        verify(bookingConfirmationDispatcher, never()).dispatch(any());
+    }
+
+    @Test
+    public void reserveTicket_notificationDispatchFailure_doesNotBreakSuccess() {
+        Event event = new Event("doc1", "e1", "Title", "Cat", "Loc", 1000L, EventStatus.ACTIVE, 10, 5);
+        ArgumentCaptor<ReservationRepository.ReservationActionCallback> reservationCallbackCaptor = ArgumentCaptor.forClass(ReservationRepository.ReservationActionCallback.class);
+        ArgumentCaptor<EventActionCallback> eventCallbackCaptor = ArgumentCaptor.forClass(EventActionCallback.class);
+
+        doThrow(new RuntimeException("Dispatcher offline"))
+                .when(bookingConfirmationDispatcher)
+                .dispatch(any(BookingConfirmationDetails.class));
+
+        TestActionCallback callback = new TestActionCallback();
+        service.reserveTicket(event, "user@test.com", callback);
+
+        verify(reservationRepository).createReservation(any(Reservation.class), reservationCallbackCaptor.capture());
+        reservationCallbackCaptor.getValue().onSuccess();
+        verify(eventRepository).updateEvent(any(Event.class), eventCallbackCaptor.capture());
+        eventCallbackCaptor.getValue().onSuccess();
+
+        assertEquals(1, callback.successCalls);
     }
 
     @Test

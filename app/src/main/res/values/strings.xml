@@ -115,4 +115,6 @@
     <string name="browse_filter_location_hint">Location</string>
     <string name="browse_clear_filters">Clear filters</string>
     <string name="browse_events_no_match">No events match your filters.</string>
+    <string name="browse_reservation_success_title">Reservation Confirmed</string>
+    <string name="browse_reservation_success_message">Reservation saved for %1$s. A confirmation email is being sent.</string>
 </resources>

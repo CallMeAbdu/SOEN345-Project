@@ -643,6 +643,8 @@ public class BrowseEventsActivity extends AppCompatActivity {
                 .show();
     }
     private void reserveEvent(Event e){
+        String eventTitle = isNullOrBlank(e.getTitle())
+                ? getString(R.string.home_event_untitled) : e.getTitle();
         String userEmail = getIntent().getStringExtra(EXTRA_USER_EMAIL);
         if (isNullOrBlank(userEmail)) {
             userEmail = authService.getSignedInEmail();
@@ -654,7 +656,10 @@ public class BrowseEventsActivity extends AppCompatActivity {
         reservationService.reserveTicket(e, userEmail, new ReservationRepository.ReservationActionCallback() {
             @Override
             public void onSuccess() {
-                showResultDialog("Success", "BOOKED");
+                showResultDialog(
+                        getString(R.string.browse_reservation_success_title),
+                        getString(R.string.browse_reservation_success_message, eventTitle)
+                );
             }
             @Override
             public void onError(String errorMessage) {

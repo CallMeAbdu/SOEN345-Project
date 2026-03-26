@@ -86,9 +86,10 @@ public class ReservationInstrumentedTest {
             onView(buttonInCard(title)).perform(click());
             onView(withText("Yes")).inRoot(isDialog()).perform(click());
             
-            // Check for the Success dialog message "BOOKED"
-            onView(withText("Success")).inRoot(isDialog()).check(matches(isDisplayed()));
-            onView(withText("BOOKED")).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText("Reservation Confirmed")).inRoot(isDialog()).check(matches(isDisplayed()));
+            onView(withText(containsString("A confirmation email is being sent.")))
+                    .inRoot(isDialog())
+                    .check(matches(isDisplayed()));
         }
     }
 
