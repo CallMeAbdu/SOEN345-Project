@@ -1,7 +1,10 @@
 package com.soen345.project.reservation;
 
+import com.soen345.project.BuildConfig;
 import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.FirebaseEventRepository;
+import com.soen345.project.notification.BookingConfirmationDispatcher;
+import com.soen345.project.notification.HttpBookingConfirmationDispatcher;
 
 public class ReservationServiceProvider
 {
@@ -16,7 +19,15 @@ public class ReservationServiceProvider
         }
         ReservationRepository reservationRepository = new FirebaseReservationRepository();
         EventRepository eventRepository = new FirebaseEventRepository();
-        return new ReservationService(reservationRepository, eventRepository);
+        BookingConfirmationDispatcher bookingConfirmationDispatcher =
+                new HttpBookingConfirmationDispatcher(
+                        BuildConfig.MAIL_RELAY_BASE_URL
+                );
+        return new ReservationService(
+                reservationRepository,
+                eventRepository,
+                bookingConfirmationDispatcher
+        );
     }
 
     public static void setReservationService(ReservationService reservationService)

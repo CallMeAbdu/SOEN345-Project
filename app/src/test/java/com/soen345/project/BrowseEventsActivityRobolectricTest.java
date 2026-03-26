@@ -768,8 +768,14 @@ public class BrowseEventsActivityRobolectricTest {
 
         AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(resultDialog);
-        assertEquals("Success", shadowOf(resultDialog).getTitle());
-        assertEquals("BOOKED", shadowOf(resultDialog).getMessage());
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_title),
+                shadowOf(resultDialog).getTitle()
+        );
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_message, "Concert"),
+                shadowOf(resultDialog).getMessage()
+        );
     }
 
     @Test
@@ -824,7 +830,10 @@ public class BrowseEventsActivityRobolectricTest {
         // Verify successful reservation via fallback email
         AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
         assertNotNull(resultDialog);
-        assertEquals("Success", shadowOf(resultDialog).getTitle());
+        assertEquals(
+                activity.getString(R.string.browse_reservation_success_title),
+                shadowOf(resultDialog).getTitle()
+        );
     }
 
     @Test
@@ -845,6 +854,37 @@ public class BrowseEventsActivityRobolectricTest {
         assertNotNull(resultDialog);
         assertEquals("Error", shadowOf(resultDialog).getTitle());
         assertEquals("User email is null or blank", shadowOf(resultDialog).getMessage());
+    }
+
+    @Test
+    public void reserveEvent_withNullTitle_usesUntitledFallbackInSuccessMessage() throws Exception {
+        Event eventWithNullTitle = new Event(
+                "d1",
+                "d1",
+                null,
+                "Music",
+                "Montreal",
+                futureMillis,
+                EventStatus.ACTIVE,
+                10,
+                5
+        );
+        BrowseEventsActivity activity = launch();
+
+        java.lang.reflect.Method method = BrowseEventsActivity.class.getDeclaredMethod("reserveEvent", Event.class);
+        method.setAccessible(true);
+        method.invoke(activity, eventWithNullTitle);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        AlertDialog resultDialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertNotNull(resultDialog);
+        assertEquals(
+                activity.getString(
+                        R.string.browse_reservation_success_message,
+                        activity.getString(R.string.home_event_untitled)
+                ),
+                shadowOf(resultDialog).getMessage()
+        );
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
