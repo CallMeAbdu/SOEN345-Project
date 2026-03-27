@@ -1,0 +1,52 @@
+appId: com.soen345.project
+---
+# 1. Login as User
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+# 2. Open Filter Panel
+- assertVisible: "Browse Events"
+- tapOn:
+    id: "browseFilterToggleChip"
+- assertVisible:
+    id: "browseFilterPanel"
+
+# 3. Test Category Filter
+- tapOn:
+    id: "browseCategoryFilterInput"
+- inputText: "Festival"
+- waitForAnimationToEnd
+# Verify the chip appears in the active filters container
+- assertVisible: "Festival"
+
+# 4. Test Location Filter
+- tapOn:
+    id: "browseLocationFilterInput"
+- inputText: "Ile Jean-Drapeau"
+- waitForAnimationToEnd
+- assertVisible: "Ile Jean-Drapeau"
+
+# 5. Clear Filters
+- tapOn:
+    id: "browseClearFiltersButton"
+- waitForAnimationToEnd
+# Verify chips are gone
+- assertNotVisible: "Festival"
+- assertNotVisible: "Ile Jean-Drapeau"
+
+# 6. Test Hide Past Switch
+- tapOn:
+    id: "browseHidePastSwitch"
+# Toggling it off should show a chip saying "Showing past"
+- assertVisible: "Showing past"
+
+- tapOn:
+    id: "browseHideSoldOutSwitch"
+- assertVisible: "Available only"
+
+- tapOn:
+    id: "browseHideCancelledSwitch"
+- assertVisible: "Showing cancelled"

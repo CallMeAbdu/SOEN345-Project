@@ -1,0 +1,126 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "admin@example.com"
+      password: "password123"
+
+- waitForAnimationToEnd
+- assertVisible: "Event Management"
+
+# Add New Event Test
+- tapOn:
+    id: "homeAddEventButton"
+- assertVisible: "Add New Event"
+
+
+- tapOn:
+    id: "dialogEventTitleInput"
+- inputText: "Maestro Test Event"
+
+- tapOn:
+    id: "dialogEventCategoryInput"
+- inputText: "Testing"
+
+- tapOn:
+    id: "dialogEventLocationInput"
+- inputText: "Automated Lab"
+
+- tapOn:
+    id: "dialogEventTimeInput"
+- inputText: "2025-12-25 18:00"
+- tapOn: "OK"
+- tapOn: "OK"
+
+- tapOn:
+    id: "dialogEventCapacityTotalInput"
+- inputText: "100"
+
+- tapOn: "Add New Event"
+
+- scrollUntilVisible:
+    element: "Maestro Test Event"
+
+- waitForAnimationToEnd
+- assertVisible: "Maestro Test Event"
+
+# Edit Test
+- tapOn:
+    id: "eventItemEditButton"
+    rightOf: "Maestro Test Event"
+
+- assertVisible: "Edit Event"
+
+- tapOn:
+    id: "dialogEventTitleInput"
+
+- eraseText
+
+- inputText: "Test Edited Title"
+
+- tapOn:
+    id: "dialogEventLocationInput"
+
+- eraseText
+
+- inputText: "New Lab Room"
+
+- tapOn: "Save Changes"
+- waitForAnimationToEnd
+- assertVisible: "Test Edited Title"
+
+# Cancel/Activate Event Test
+- tapOn:
+    text: "Cancel Event"
+    below: "Test Edited Title"
+
+- tapOn: "Cancel Event"
+
+- assertVisible: "Cancelled"
+
+- tapOn:
+    text: "Activate Event"
+    below: "Test Edited Title"
+
+- tapOn: "Activate Event"
+
+# Filters Test
+- waitForAnimationToEnd
+- assertVisible: "Event Management"
+- tapOn:
+    id: "homeFilterToggleChip"
+- assertVisible:
+    id: "homeFilterPanel"
+
+- tapOn:
+    id: "homeCategoryFilterInput"
+- inputText: "Festival"
+- waitForAnimationToEnd
+
+- assertVisible: "Festival"
+
+- tapOn:
+    id: "homeLocationFilterInput"
+- inputText: "Ile Jean-Drapeau"
+- waitForAnimationToEnd
+
+- assertVisible: "Ile Jean-Drapeau"
+
+
+
+- tapOn:
+    id: "homeStatusFilterSpinner"
+
+- tapOn: "Cancelled only"
+- waitForAnimationToEnd
+- assertVisible: "Cancelled only"
+
+
+- tapOn:
+    id: "homeClearFiltersButton"
+- waitForAnimationToEnd
+
+- assertNotVisible: "Workshop"
+- assertNotVisible: "Cancelled only"
+- assertNotVisible: "Ile Jean-Drapeau"

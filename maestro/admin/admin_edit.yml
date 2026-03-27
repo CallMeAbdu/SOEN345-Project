@@ -1,0 +1,31 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+- tapOn:
+    id: "eventItemEditButton"
+    rightOf: "Maestro Test Event"
+
+- assertVisible: "Edit Event"
+
+- tapOn:
+    id: "dialogEventTitleInput"
+
+- eraseText
+
+- inputText: "Test Edited Title"
+
+- tapOn:
+    id: "dialogEventLocationInput"
+
+- eraseText
+
+- inputText: "New Lab Room"
+
+- tapOn: "Save Changes"
+- waitForAnimationToEnd
+- assertVisible: "Test Edited Title"

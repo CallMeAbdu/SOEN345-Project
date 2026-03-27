@@ -1,0 +1,23 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+- assertVisible: "Browse Events"
+
+- extendedWaitUntil:
+    visible:
+        id: "browseEventReserveButton"
+    timeout: 15000
+
+- tapOn:
+    id: "browseEventReserveButton"
+
+- assertVisible: "Confirm Reservation"
+- tapOn: "Yes"
+
+- assertVisible: "Reservation Confirmed"
+- tapOn: "OK"

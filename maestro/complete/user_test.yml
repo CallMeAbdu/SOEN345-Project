@@ -1,0 +1,81 @@
+appId: com.soen345.project
+---
+- runFlow:
+    file: ../common/login.yml
+    env:
+      email: "andy@test.com"
+      password: "password123"
+
+- waitForAnimationToEnd
+
+# Reserve Event Test
+- assertVisible: "Browse Events"
+
+- extendedWaitUntil:
+    visible:
+      id: "browseEventReserveButton"
+    timeout: 15000
+
+- tapOn:
+    id: "browseEventReserveButton"
+
+- assertVisible: "Confirm Reservation"
+- tapOn: "Yes"
+
+- assertVisible: "Reservation Confirmed"
+- tapOn: "OK"
+
+# Filter Test
+- waitForAnimationToEnd
+- assertVisible: "Browse Events"
+- tapOn:
+    id: "browseFilterToggleChip"
+- assertVisible:
+    id: "browseFilterPanel"
+
+- tapOn:
+    id: "browseCategoryFilterInput"
+- inputText: "Festival"
+- waitForAnimationToEnd
+
+- assertVisible: "Festival"
+
+- tapOn:
+    id: "browseLocationFilterInput"
+- inputText: "Ile Jean-Drapeau"
+- waitForAnimationToEnd
+- assertVisible: "Ile Jean-Drapeau"
+
+
+- tapOn:
+    id: "browseClearFiltersButton"
+- waitForAnimationToEnd
+
+- assertNotVisible: "Festival"
+- assertNotVisible: "Ile Jean-Drapeau"
+
+
+- tapOn:
+    id: "browseHidePastSwitch"
+
+- assertVisible: "Showing past"
+
+- tapOn:
+    id: "browseHideSoldOutSwitch"
+- assertVisible: "Available only"
+
+- tapOn:
+    id: "browseHideCancelledSwitch"
+- assertVisible: "Showing cancelled"
+
+- tapOn:
+    id: "nav_my_tickets"
+- waitForAnimationToEnd
+- assertVisible: "My Tickets"
+
+# Cancel Reservation Test
+- tapOn: "Cancel Reservation"
+- assertVisible: "Cancel Reservation"
+- tapOn: "Yes, Cancel"
+
+- assertVisible: "Reservation cancelled"

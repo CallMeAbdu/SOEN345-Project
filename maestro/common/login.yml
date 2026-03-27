@@ -1,0 +1,24 @@
+appId: com.soen345.project
+---
+- clearState
+- launchApp
+- waitForAnimationToEnd
+# Sign out if already signed in (added when - clearState would crash the app. Not necessary anymore)
+- runFlow:
+    when:
+      visible: "Sign Out"
+    commands:
+      - tapOn: "Sign Out"
+      - waitForAnimationToEnd
+      - assertVisible: "Sign In"
+
+- assertVisible: "Sign In"
+- tapOn:
+    id: "emailInput"
+- inputText: "${email}"
+- tapOn:
+    id: "passwordInput"
+- inputText: "${password}"
+- tapOn:
+    id: "authButton"
+- waitForAnimationToEnd
