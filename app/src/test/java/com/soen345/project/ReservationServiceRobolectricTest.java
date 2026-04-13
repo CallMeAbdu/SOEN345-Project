@@ -1,4 +1,4 @@
-package com.soen345.project.reservation;
+package com.soen345.project;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +12,9 @@ import com.soen345.project.event.EventRepository;
 import com.soen345.project.event.EventStatus;
 import com.soen345.project.notification.BookingConfirmationDetails;
 import com.soen345.project.notification.BookingConfirmationDispatcher;
+import com.soen345.project.reservation.Reservation;
+import com.soen345.project.reservation.ReservationRepository;
+import com.soen345.project.reservation.ReservationService;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
